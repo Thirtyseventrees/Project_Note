@@ -16,4 +16,5 @@ cmake --build . --config Release --target install
 ```
 2. Visual studio配置
 右键项目选择属性
-更改对应设置
+更改对应设置  
+![Example Image](./picture/vs_set.png)
