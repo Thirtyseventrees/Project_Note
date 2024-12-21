@@ -3,7 +3,7 @@
 在源码文件夹中创建`build`文件夹和`install`文件夹。
 在`build`文件夹中输入：
 ```
-cmake -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_PREFIX="C:/Users/ThirtySevenTrees/lib/opencv-4.x/install" ..
+cmake -DBUILD_SHARED_LIBS=OFF -DBUILD_opencv_world=ON -DCMAKE_INSTALL_PREFIX="C:/Users/ThirtySevenTrees/lib/opencv-4.x/install" ..
 # DBUILD_SHARED_LIBS=OFF用于设置生成静态库
 ```
 构建好之后安装用于debug的库
