@@ -177,3 +177,53 @@ void cv::matchTemplate(
   
 如果模板图像不是对应原图像分辨率的图像，就可以使用多尺度模板匹配的方式  
 使用函数`void cv::resize(cv::InputArray src, cv::OutputArray dst, cv::Size dsize, double fx = (0.0), double fy = (0.0), int interpolation = 1)`来改变模板大小进行匹配
+
+# C++相关
+
+## 函数返回值
+函数返回值通常是以值的形式返回的临时对象，仅在当前语句结束前有效  
+故函数的返回值主要用于复制或者初始化新的对象
+
+## 引用
+### 悬空引用（dangling reference）
+如果一个引用所绑定的对象被销毁，引用会变成悬空引用，对悬空引用的访问会导致未定义行为  
+故不能将引用值绑定于函数返回的对象
+
+## std::vector
+### RAII
+std::vector是一个RAII类型的容器，它会在作用域结束时自动释放其所占用的内存
+
+## push_back()
+具体实现：
+```
+      _GLIBCXX20_CONSTEXPR
+      void
+      push_back(const value_type& __x)
+      {
+	if (this->_M_impl._M_finish != this->_M_impl._M_end_of_storage)
+	  {
+	    _GLIBCXX_ASAN_ANNOTATE_GROW(1);
+	    _Alloc_traits::construct(this->_M_impl, this->_M_impl._M_finish,
+				     __x);
+	    ++this->_M_impl._M_finish;
+	    _GLIBCXX_ASAN_ANNOTATE_GREW(1);
+	  }
+	else
+	  _M_realloc_append(__x);
+      }
+```
+
+```
+// overload construct for non-standard pointer types
+    template<typename _Ptr, typename... _Args>
+      [[__gnu__::__always_inline__]]
+      static _GLIBCXX14_CONSTEXPR
+      std::__enable_if_t<__is_custom_pointer<_Ptr>::value>
+      construct(_Alloc& __a, _Ptr __p, _Args&&... __args)
+      noexcept(noexcept(_Base_type::construct(__a, std::__to_address(__p),
+					      std::forward<_Args>(__args)...)))
+      {
+	_Base_type::construct(__a, std::__to_address(__p),
+			      std::forward<_Args>(__args)...);
+      }
+```
