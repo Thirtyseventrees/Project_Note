@@ -1,14 +1,18 @@
 - [未完成跳过部分](#未完成跳过部分)
-- [static关键字](#static关键字)
+- [class 相关：](#class-相关)
+  - [static关键字](#static关键字)
+  - [析构函数](#析构函数)
 - [左值和右值](#左值和右值)
 - [C++11的可变模板参数（`typename... Args`）](#c11的可变模板参数typename-args)
 - [::operator new和::new和malloc()](#operator-new和new和malloc)
+- [new(`new T()`)和placement new(`new(ptr) T()`)](#newnew-t和placement-newnewptr-t)
 
 # 未完成跳过部分
 1. std::forward()完美转发实现，在`construct.h`和`allocator.h`中调用`std::forward()`
 2. std::move(), 在`allocator.h`中调用`std::move()`
 
-# static关键字
+# class 相关：
+## static关键字
 static 关键字用于声明静态成员函数。静态成员函数的特点是不依赖于具体的类实例，可以直接通过类名调用。  
 
 静态函数的限制：  
@@ -17,6 +21,11 @@ static 关键字用于声明静态成员函数。静态成员函数的特点是�
 
 2. 不能被虚函数覆盖
 静态成员函数无法声明为虚函数，因为它们不依赖于具体对象。
+
+## 析构函数
+析构函数(`~ClassName()`)是C++类中一个特殊成员函数，它在对象的生命周期结束时自动调用，用于释放资源，例如文件，锁，网络连接等。  
+注意： 析构函数只负责清理对象的资源，不会负责释放对象本身的内存。  
+`delete()`函数先调用类的析构函数，然后再调用`operator delete()`释放对象的内存。
 
 # 左值和右值
 左值（lvalue）和右值（rvalue）是变量和表达式的一种分类方式，主要与`内存位置` (是否可寻址)和`生命周期`（是否可持久化）有关  
@@ -173,3 +182,41 @@ int main() {
 2. `::operator new`只负责内存分配，类似于`malloc()`。  
    与`malloc()`的区别在于：`::operator new`会抛出异常，而`malloc()`返回`nullptr`。
 3. `malloc()`只分配内存，不知道`T`的构造函数，不会初始化对象。
+
+# new(`new T()`)和placement new(`new(ptr) T()`)
+1. 普通的new(`new T()`)会分配内存并构造对象：
+```
+#include <iostream>
+
+class MyClass {
+public:
+    MyClass(int x) { std::cout << "Constructor: " << x << "\n"; }
+    ~MyClass() { std::cout << "Destructor\n"; }
+};
+
+int main() {
+    MyClass* obj = new MyClass(42);  // ✅ 申请新内存并构造对象
+    delete obj;                      // ✅ 调用析构并释放内存
+    return 0;
+}
+```
+2. 而placement new(`new(ptr) T()`)不会分配新内存，只会在`ptr`指向的内存上调用构造函数。
+```
+#include <iostream>
+
+class MyClass {
+public:
+    MyClass(int x) { std::cout << "Constructor: " << x << "\n"; }
+    ~MyClass() { std::cout << "Destructor\n"; }
+};
+
+int main() {
+    void* mem = ::operator new(sizeof(MyClass));  // ✅ 仅分配内存（不会构造对象）
+    MyClass* obj = new (mem) MyClass(42);  // ✅ 在 `mem` 指向的内存上构造对象
+
+    obj->~MyClass();  // ✅ 显式调用析构函数
+    ::operator delete(mem);  // ✅ 释放 `operator new` 申请的内存
+
+    return 0;
+}
+```
