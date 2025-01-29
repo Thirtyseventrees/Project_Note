@@ -6,6 +6,10 @@
 - [C++11的可变模板参数（`typename... Args`）](#c11的可变模板参数typename-args)
 - [::operator new和::new和malloc()](#operator-new和new和malloc)
 - [new(`new T()`)和placement new(`new(ptr) T()`)](#newnew-t和placement-newnewptr-t)
+- [lvalue reference and rvalue reference and universal reference](#lvalue-reference-and-rvalue-reference-and-universal-reference)
+- [`std::forward<T>()` 和 `std::move()`](#stdforwardt-和-stdmove)
+  - [`std::forward<T>()`](#stdforwardt)
+  - [`std::move()`](#stdmove)
 
 # 未完成跳过部分
 1. std::forward()完美转发实现，在`construct.h`和`allocator.h`中调用`std::forward()`
@@ -67,7 +71,8 @@ mov eax, dword ptr [x]      ; 将 x 的值加载到寄存器 eax 中
 add eax, 1                  ; 将 eax 加 1
 mov dword ptr [y], eax      ; 将结果存储到 y 的地址
 ```
-- 右值没有固定的内存地址，通常只在`寄存器`或`栈`上存在  
+- 右值没有固定的内存地址，通常只在`寄存器`或`栈`上存在。  
+- 虽然右值也可能存储在内存的栈上，但不能被寻址。  
 eg.
 ```
 int y = 10 + 20;
@@ -220,3 +225,175 @@ int main() {
     return 0;
 }
 ```
+# lvalue reference and rvalue reference and universal reference
+```
+Widget&& var1 = someWidget;      // here, “&&” means rvalue reference，var1虽然是右值引用，但它作为表达式的时候是左值。
+ 
+auto&& var2 = var1;              // here, “&&” does not mean rvalue reference, 此时var2是左值引用
+ 
+template<typename T>
+void f(std::vector<T>&& param);  // here, “&&” means rvalue reference
+ 
+template<typename T>
+void f(T&& param);               // here, “&&”does not mean rvalue reference
+```
+1. 左值引用（lvalue reference）  
+用于绑定左值变量，允许通过引用修改变量的值。
+```
+int a = 10;
+int& ref = a;  // ✅ `ref` 绑定 `a`
+ref = 20;      // ✅ 修改 `a`
+```
+`const X&`可以绑定左值或右值  
+```
+const int& a = 10;  //It's OK.
+```
+2. 右值引用（rvalue reference）
+只能绑定右值
+```
+int&& rref = 10;  // ✅ `rref` 绑定右值 10
+```
+右值被右值引用绑定后会一直存在直到对应的右值引用生命周期结束，期间这个对象将会一直被存储在栈上。  
+此时这个“右值”可以被寻址：  
+```
+const int& ref = 10;  // ✅ `10` 绑定到 `ref`，生命周期延长
+const int* p = &ref;  // ✅ 现在 `p` 有合法地址
+```
+
+3. 万能引用（universal reference）  
+If a variable or parameter is declared to have type T&& for some deduced type T, that variable or parameter is a universal reference.
+```
+// 在模板函数中 T&& 或者在其他地方的 auto&&
+template <typename T>
+void message2(T&& x){
+    process(std::forward<T>(x));
+}
+
+int main(){
+    int a = 10;
+    int& var1 = a;          //lvalue reference
+    int&& var2 = 11;        //rvalue reference
+    auto&& var3 = 12;       //rvalue reference
+    auto&& var4 = var2;     //lvalue reference
+    return 0;
+}
+```
+在函数`void message2(T&& x)`中`T&& x`作为一个万能引用使用`std::forward<T>(x)`保留左/右值属性传输对象。  
+使用万能引用时，这个引用既可以是左值引用也可以是右值引用，取决于具体情况。
+
+
+# `std::forward<T>()` 和 `std::move()`
+
+| 特性 | `std::move()` | `std::forward<T>()` |
+|------|-------------|------------------|
+| **主要作用** | 无条件转换为右值（允许移动语义） | 保持传入参数的左值/右值特性（完美转发） |
+| **是否改变值类别** | 始终转换为右值 | 仅在 `T` 是右值时转换 |
+| **适用于** | 移动构造/移动赋值 | 泛型代码（函数模板参数传递） |
+| **返回类型** | `T&&` | `T&&` |
+| **用法场景** | 移动对象资源，避免昂贵拷贝 | 在模板中保持原始参数的值类别 |
+| **是否影响对象所有权** | ✅ 是（将对象视为右值） | ❌ 否（仅在右值时才转换） |
+| **底层实现** | `static_cast<typename std::remove_reference<_Tp>::type&&>(__t)` | `static_cast<T&&>(x);` |
+
+## `std::forward<T>()`
+标准库中使用重载来分别处理左值和右值
+```
+/**
+   *  @brief  Forward an lvalue.
+   *  @return The parameter cast to the specified type.
+   *
+   *  This function is used to implement "perfect forwarding".
+   */
+  template<typename _Tp>
+    _GLIBCXX_NODISCARD
+    constexpr _Tp&&
+    forward(typename std::remove_reference<_Tp>::type& __t) noexcept
+    { return static_cast<_Tp&&>(__t); }
+
+  /**
+   *  @brief  Forward an rvalue.
+   *  @return The parameter cast to the specified type.
+   *
+   *  This function is used to implement "perfect forwarding".
+   */
+  template<typename _Tp>
+    _GLIBCXX_NODISCARD
+    constexpr _Tp&&
+    forward(typename std::remove_reference<_Tp>::type&& __t) noexcept
+    {
+      static_assert(!std::is_lvalue_reference<_Tp>::value, "template argument"
+		    " substituting _Tp must not be an lvalue reference type");
+      return static_cast<_Tp&&>(__t);
+    }
+```
+其中`typename std::remove_reference<_Tp>::type`用于去除类型_TP的引用  
+然后`typename std::remove_reference<_Tp>::type&`为左值引用  
+`typename std::remove_reference<_Tp>::type&`为右值引用
+以`int`类型为例分析：
+- 如果`T = int&`（左值引用）  
+  返回类型`T&& = int& &&`,根据引用折叠规则，为`int &`（左值引用）
+- 如果`T = int`或`T = int&&`（右值引用）
+  返回类型`T&& = int&&`或`T&& = int&& && = int&&`（右值引用）
+
+`std::forward<T>()`常用于：
+1. 泛型函数包装（保持左值/右值特性）  
+   当编写一个 泛型函数，它接受任何参数并将其传递给另一个函数，如果不使用 std::forward<T>(arg)，右值会被错误地转换为左值。
+   例如：
+```
+#include <iostream>
+
+void process(int& x) { std::cout << "Lvalue reference: " << x << "\n"; }
+void process(int&& x) { std::cout << "Rvalue reference: " << x << "\n"; }
+
+template <typename T>
+void wrapper(T&& arg) {
+    process(std::forward<T>(arg));  // ✅ 保持 `arg` 的左值/右值特性
+}
+
+int main() {
+    int a = 10;
+    wrapper(a);   // ✅ 传递左值引用，调用 `process(int&)`
+    wrapper(20);  // ✅ 传递右值，调用 `process(int&&)`
+}
+```
+编译器会推导T的类型  
+- 如果传入的值是左值，T会被推导为`int&`, 最后引用折叠返回值为左值引用
+- 如果传入的是右值，T会被推导为`int`，最后返回右值引用
+
+2. 变长参数模板（完美转发）
+在变长参数模板中（如`std::vector::emplace_back()`），`std::forward<T>()`确保参数按照原始方式传递，而不会引入额外的拷贝。
+```
+#include <iostream>
+#include <vector>
+
+class Widget {
+public:
+    Widget(int x, double y) { std::cout << "Widget constructed: " << x << ", " << y << "\n"; }
+};
+
+template <typename T, typename... Args>
+T* createObject(Args&&... args) {
+    return new T(std::forward<Args>(args)...);  // ✅ 完美转发
+}
+
+int main() {
+    Widget* w = createObject<Widget>(42, 3.14);  // ✅ 避免拷贝，直接构造
+    delete w;
+}
+```
+
+## `std::move()`
+```
+  /**
+   *  @brief  Convert a value to an rvalue.
+   *  @param  __t  A thing of arbitrary type.
+   *  @return The parameter cast to an rvalue-reference to allow moving it.
+  */
+  template<typename _Tp>
+    _GLIBCXX_NODISCARD
+    constexpr typename std::remove_reference<_Tp>::type&&
+    move(_Tp&& __t) noexcept
+    { return static_cast<typename std::remove_reference<_Tp>::type&&>(__t); }
+```
+`move()`的参数`_TP&& __t`为万能引用，左值右值都可以  
+`static_cast<typename std::remove_reference<_Tp>::type&&>`将类型去除引用之后加上`&&`变为右值引用  
+故`move()`不论什么值都会被转换成一个右值引用
