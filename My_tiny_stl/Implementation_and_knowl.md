@@ -1,7 +1,25 @@
+- [收获](#收获)
 - [未完成跳过部分](#未完成跳过部分)
+- [C++基础](#c基础)
+  - [声明，定义，初始化，赋值](#声明定义初始化赋值)
+    - [1. 声明（Declaration）](#1-声明declaration)
+    - [2. 定义（Definition）](#2-定义definition)
+    - [3. 初始化（Initialization）](#3-初始化initialization)
+    - [4.赋值（Assignment）](#4赋值assignment)
+  - [decltype()](#decltype)
 - [class 相关：](#class-相关)
   - [static关键字](#static关键字)
+  - [explicit关键字](#explicit关键字)
   - [析构函数](#析构函数)
+  - [`::`运算符](#运算符)
+  - [`const`修饰成员函数](#const修饰成员函数)
+- [C++模板编程](#c模板编程)
+  - [类型模板参数](#类型模板参数)
+  - [非类型模板参数](#非类型模板参数)
+  - [模板编译](#模板编译)
+  - [依赖类型](#依赖类型)
+  - [部分特化（偏特化）（Partial Specialization）](#部分特化偏特化partial-specialization)
+  - [SFINAE机制（Substitution Failure Is Not An Error）](#sfinae机制substitution-failure-is-not-an-error)
 - [左值和右值](#左值和右值)
 - [C++11的可变模板参数（`typename... Args`）](#c11的可变模板参数typename-args)
 - [::operator new和::new和malloc()](#operator-new和new和malloc)
@@ -10,12 +28,108 @@
 - [`std::forward<T>()` 和 `std::move()`](#stdforwardt-和-stdmove)
   - [`std::forward<T>()`](#stdforwardt)
   - [`std::move()`](#stdmove)
+- [红黑树](#红黑树)
+
+# 收获
+1. 使用Address Sanitizer(ASan)检查出内存错误：
+   在写vector的时候，调用配置器的allocate和deallocate的时候出现了问题，使用ASan发现删除的内存比分配的内存更多。检测后发现vector的`size()`和`capacity()`有问题。
 
 # 未完成跳过部分
-1. std::forward()完美转发实现，在`construct.h`和`allocator.h`中调用`std::forward()`
-2. std::move(), 在`allocator.h`中调用`std::move()`
+1. （已完成）std::forward()完美转发实现，在`construct.h`和`allocator.h`中调用`std::forward()`
+2. （已完成）std::move(), 在`allocator.h`中调用`std::move()`
+3.  (已完成) 容器中调用了`<memory>`的相关操作。
+   - `relloc_and_insert`中的`std::uninitialized_move`
+
+# C++基础
+
+## 声明，定义，初始化，赋值
+### 1. 声明（Declaration）
+   声明的作用是告诉编译器某个实体的存在及其类型，但不会分配内存或提供具体的实现。声明通常用于变量、函数、类、模板等。
+   - 变量声明：告诉编译器变量的类型和名称，但不分配内存。
+  ```
+    extern int x;   //声明一个整型变量x，但不定义他也不分配内存。
+  ```
+  这里的`extern`关键字表示`x`在其他地方定义。
+  - 函数声明：告诉编译器函数的名称、返回类型和参数列表，但不提供函数体。
+  ```
+  int add(int a, int b);    //声明一个函数add。
+  ```
+  - 类声明： 告诉编译器类的名称和成员，但不提供实现。
+  ```
+  class Myclass;    //声明一个类Myclass
+  ```
+### 2. 定义（Definition）
+   定义是为声明的实体分配内存或提供具体实现。定义是声明的超集，即定义包含了声明。
+-  变量定义：为变量分配内存并可以初始化。
+```
+int x; // 定义一个整型变量x，分配内存
+```
+- 函数定义：提供函数的具体实现。
+```
+int add(int a, int b) {
+    return a + b;
+}
+```
+- 类定义：提供类的完整实现，包括成员变量和成员函数。
+```
+class MyClass {
+public:
+    int value;
+    void print() {
+        std::cout << value << std::endl;
+    }
+};
+```
+
+### 3. 初始化（Initialization）
+初始化是在定义变量时为其赋予一个初始值。初始化可以发生在定义时，也可以在构造函数中。
+- 直接初始化：
+```
+int x = 10; // 定义并初始化x为10
+```
+- 列表初始化（C++11引入）：
+```
+int x{10}; // 使用花括号初始化
+```
+- 默认初始化：
+如果没有显式初始化，变量会被默认初始化。对于内置类型（如 int），默认初始化可能是未定义的（垃圾值）；对于类类型，会调用默认构造函数。
+```
+int x; // 默认初始化，x的值未定义
+```
+- 构造函数初始化：
+对于类对象，初始化通常通过构造函数完成。
+```
+class MyClass {
+public:
+    int value;
+    MyClass(int v) : value(v) {} // 构造函数初始化列表
+};
+```
+
+### 4.赋值（Assignment）
+赋值是为已经定义的变量赋予一个新值。
+
+## decltype()
+用于获取变量或表达式的类型
+```
+int x = 10;
+decltype(x) y = 20;  // `y` 的类型是 `int`
+
+int a = 10, b = 20;
+decltype(a + b) c = 30;  // `c` 的类型是 `int`
+```
+`decltype((expr))` 与 `decltype(expr)` 的区别
+```
+int x = 10;
+decltype(x) a = x;   // `a` 是 `int`
+decltype((x)) b = x; // `b` 是 `int&`
+```
 
 # class 相关：
+
+<img src="./picture/p1.jpg" alt="implict_methods" width="600"/>
+<img src="./picture/p2.png" alt="implict_methods" width="600"/>
+
 ## static关键字
 static 关键字用于声明静态成员函数。静态成员函数的特点是不依赖于具体的类实例，可以直接通过类名调用。  
 
@@ -26,10 +140,239 @@ static 关键字用于声明静态成员函数。静态成员函数的特点是�
 2. 不能被虚函数覆盖
 静态成员函数无法声明为虚函数，因为它们不依赖于具体对象。
 
+## explicit关键字
+在 C++ 中，`explicit` 关键字用于防止隐式类型转换，主要用于构造函数，防止编译器在不明确的情况下自动执行类型转换。
+
 ## 析构函数
 析构函数(`~ClassName()`)是C++类中一个特殊成员函数，它在对象的生命周期结束时自动调用，用于释放资源，例如文件，锁，网络连接等。  
 注意： 析构函数只负责清理对象的资源，不会负责释放对象本身的内存。  
 `delete()`函数先调用类的析构函数，然后再调用`operator delete()`释放对象的内存。
+
+## `::`运算符
+| **访问内容**           | **能否用 `::` 访问？** | **示例** |
+|-------------------|-----------------|----------------------------|
+| **静态成员变量**  | ✅ 可以 | `ClassName::staticVar` |
+| **静态成员函数**  | ✅ 可以 | `ClassName::staticFunc()` |
+| **类内 `typedef` 或 `using`** | ✅ 可以 | `ClassName::TypeAlias` |
+| **枚举成员**      | ✅ 可以 | `ClassName::EnumValue` |
+| **非静态成员变量** | ❌ 不能 | `ClassName::memberVar`（错误） |
+| **非静态成员函数** | ❌ 不能 | `ClassName::memberFunc()`（错误） |
+
+## `const`修饰成员函数
+`const`修饰的成员函数不能修改类的成员变量，除非该变量使用了`mutable`关键字。本质上是作用在指针`this`上。  
+`const`对象只能调用`const`函数。  
+`const`修饰可以重载函数，`const`成员会调用重载的函数。
+
+# C++模板编程
+
+## 类型模板参数
+```
+template <typename T>
+int compare (const T &vl, const T &v2)
+{
+    if (vl < v2) return -1;
+    if (v2 < v1) return 1;
+    return 0;
+}
+```
+**实例化函数模板：**  
+当我们调用一个函数模板时,编译器(通常)用函数实参来为我们推断模板实参。即,
+当我们调用 compare 时,编译器使用实参的类型来确定绑定到模板参数的类型。例如,
+在下面的调用中:
+```
+cout << compare (1, 0) << endl; // T为int
+```
+实参类型是int。编译器会推断出模板实参为int,并将它绑定到模板参数。
+编译器用推断出的模板参数来为我们实例化(instantiate)一个特定版本的函数。当编
+译器实例化一个模板时,它使用实际的模板实参代替对应的模板参数来创建出模板的一个
+新“实例”。
+
+## 非类型模板参数
+```
+template<unsigned N, unsigned M>
+int compare (const char (&p1) [N], const char (&p2) [M])
+{
+    return strcmp(p1, p2);
+}
+```
+一个非类型参数可以是一个整型,或者是一个指向对象或函数类型的指针或(左值)引用。  
+在模板定义内,模板非类型参数是一个常量值。在需要常量表达式的地方,可以使用非类型参数,例如,指定数组大小。
+
+## 模板编译
+当编译器遇到一个模板定义时,它并不生成代码。只有当我们实例化出模板的一个特定版本时,编译器才会生成代码。  
+也就是说只有当我们使用(而不是定义)模板时,编译器才生成代码。
+
+## 依赖类型
+```
+template <typename T>
+void func() {
+    T a;                       // 不需要`typename`
+    typename T::value_type x;  // ✅ 需要 `typename`，因为 `T::value_type` 依赖 `T`
+}
+
+```
+当编译器无法在模板实例化之前确定它的具体类型（类型还是变量）时，我们称之为依赖类型，需要在前面加上`typename`来告诉编译器这是个类型。  
+在这个例子中`T::value_type`只有在模板实例化的时候才能知道这个是变量还是类型，比如下面这两个类的情况。
+```
+template <typename T>
+class Myclass1{
+    typedef T value_type;
+}
+
+class Myclass2{
+    int value_type;
+}
+```
+在这个例子中，如果`T`是`Myclass1<int>`，则`T::value_type`是一个类型。  
+而如果`T`是`Myclass2`，则此时`T::value_type`是一个变量。  
+所以这种情况我们要用`typename`告诉编译器这是一个类型。  
+<br>
+在我们的stl实现中，有这样一个例子：
+```
+template <typename T>
+constexpr T&&
+forward(typename std::remove_reference<T>::type& t){
+    return static_cast<T&&>(t);
+}
+```
+我们可以看到参数列表中的`std::remove_reference<T>::type& t`前面用了`typename`  
+是因为`std::remove_reference<T>::type` 是一个 “依赖类型（Dependent Type）”，编译器在解析模板代码时无法确定它是否是一个类型，因此需要 `typename` 来显式指定。
+
+还有一个例子：
+```
+template <typename T>
+constexpr typename mystl::remove_reference<T>::type&& move(T&& t){
+    return static_cast<typename mystl::remove_reference<T>::type&&>(t);
+}
+```
+在这个函数的返回类型前需要加上`typename`。因为这个返回类型也是一个依赖类型。
+
+## 部分特化（偏特化）（Partial Specialization）
+部分特化（Partial Specialization） 是 C++ 模板的一种高级特性，它允许我们对部分模板参数进行特化，而不是完全特化整个模板。
+
+部分特化的核心思想是：
+- 让主模板 处理通用情况。
+- 让部分特化版本 优化或定制某些特定情况。
+- 部分特化不是全特化（全特化要求所有模板参数都被特化）。
+常见用法：
+1. 处理指针类型
+```
+template <typename T>
+class TypeTraits {
+public:
+    static void show() { std::cout << "General type\n"; }
+};
+
+// 🎯 仅当 `T` 是指针类型时，使用此特化版本
+template <typename T>
+class TypeTraits<T*> {
+public:
+    static void show() { std::cout << "Pointer type\n"; }
+};
+
+int main() {
+    TypeTraits<int>::show();   // 输出：General type
+    TypeTraits<int*>::show();  // 输出：Pointer type
+}
+```
+
+2. 处理数组类型
+```
+template <typename T>
+class TypeTraits {
+public:
+    static void show() { std::cout << "General type\n"; }
+};
+
+// 🎯 仅当 `T` 是数组类型时，使用此特化版本
+template <typename T, size_t N>
+class TypeTraits<T[N]> {
+public:
+    static void show() { std::cout << "Array type\n"; }
+};
+
+int main() {
+    TypeTraits<int>::show();    // 输出：General type
+    TypeTraits<int[5]>::show(); // 输出：Array type
+}
+```
+3. 处理`std::pair`的特定情况
+```
+template <typename T1, typename T2>
+class MyPair {
+public:
+    static void show() { std::cout << "General MyPair\n"; }
+};
+
+// 🎯 当 T1 和 T2 相同时，使用此特化版本
+template <typename T>
+class MyPair<T, T> {
+public:
+    static void show() { std::cout << "Specialized MyPair for same type\n"; }
+};
+
+int main() {
+    MyPair<int, double>::show(); // 输出：General MyPair
+    MyPair<int, int>::show();    // 输出：Specialized MyPair for same type
+}
+```
+全特化例子：
+```
+template <>
+class MyClass<int> {  // ✅ 全特化：仅适用于 `int`
+public:
+    static void show() {
+        std::cout << "Full specialization for int\n";
+    }
+};
+```
+
+## SFINAE机制（Substitution Failure Is Not An Error）
+SFINAE (Substitution Failure Is Not An Error，替换失败不是错误) 是 C++ 模板元编程中的一个核心机制，它允许编译器在模板参数替换失败时，不会报编译错误，而是会回退到其他可用的模板版本。使模板能够根据类型的特性自动匹配最合适的版本。  
+使用例子：  
+`std::enable_if`允许在模板元编程中有选择地使用或禁用某些模板：
+```
+#include <iostream>
+#include <type_traits>
+
+// 仅适用于整数类型
+template <typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
+void func(T) {
+    std::cout << "Integral type\n";
+}
+
+// 仅适用于浮点类型
+template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>>
+void func(T) {
+    std::cout << "Floating point type\n";
+}
+
+int main() {
+    func(10);     // ✅ 匹配 `is_integral<T>` -> Integral type
+    func(3.14);   // ✅ 匹配 `is_floating_point<T>` -> Floating point type
+}
+```
+
+又比如：
+ ```
+template <typename iter, 
+typename mystl::enable_if<mystl::is_iterator<iter>::value, int>::type = 0,
+typename mystl::enable_if<mystl::is_the_same_type<typename mystl::iterator_traits<iter>::value_type, value_type>::value, int>::type = 0>
+list(iter first, iter end){
+    copy_init(first, end);
+}
+ ```
+其中`enable_if`的实现为：
+```
+template <bool B, typename = void>
+struct enable_if {};
+
+template <typename T>
+struct enable_if<true, T>{
+    using type = T;
+};
+```
+运用了部分特化的特性，只有当B=true时候，结构体`enable_if`才会有`type`这个属性，所以在模板替换的时候,如果`enable_if`模板的第一个类型不为`true`，则`enable_if`不包含`type`这个属性，从而导致`mystl::enable_if<...>::type`的替换失败，从而使编译器不选择这个模板函数编译。
 
 # 左值和右值
 左值（lvalue）和右值（rvalue）是变量和表达式的一种分类方式，主要与`内存位置` (是否可寻址)和`生命周期`（是否可持久化）有关  
@@ -281,6 +624,8 @@ int main(){
 在函数`void message2(T&& x)`中`T&& x`作为一个万能引用使用`std::forward<T>(x)`保留左/右值属性传输对象。  
 使用万能引用时，这个引用既可以是左值引用也可以是右值引用，取决于具体情况。
 
+**注：** 只有当参数列表中使用万能引用时类型推导才会是左值推导为T&，右值为T。
+
 
 # `std::forward<T>()` 和 `std::move()`
 
@@ -397,3 +742,6 @@ int main() {
 `move()`的参数`_TP&& __t`为万能引用，左值右值都可以  
 `static_cast<typename std::remove_reference<_Tp>::type&&>`将类型去除引用之后加上`&&`变为右值引用  
 故`move()`不论什么值都会被转换成一个右值引用
+
+# 红黑树
+https://blog.csdn.net/cy973071263/article/details/122543826
