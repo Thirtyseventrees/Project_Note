@@ -28,6 +28,10 @@
 - [`std::forward<T>()` 和 `std::move()`](#stdforwardt-和-stdmove)
   - [`std::forward<T>()`](#stdforwardt)
   - [`std::move()`](#stdmove)
+- [memcpy](#memcpy)
+- [is\_trivially\_copyable](#is_trivially_copyable)
+  - [1. 什么是 `is_trivially_copyable`？](#1-什么是-is_trivially_copyable)
+  - [2. 为什么`memcpy`只能用于`is_trivially_copyable`?](#2-为什么memcpy只能用于is_trivially_copyable)
 - [红黑树](#红黑树)
 
 # 收获
@@ -439,7 +443,7 @@ mov dword ptr [y], eax      ; 将结果存储到变量 y 的地址
 `Args&&... args`表示函数参数包，表示可以接受不定数量和类型的参数，并通过完美转发将这些参数传递给另一个参数  
 完美转发是指将模板函数接收到的参数原封不动地转发给另一个函数，保留参数的值类别
 1. 转发给其它函数
-```
+```cpp
 #include <iostream>
 #include <string>
 #include <utility>
@@ -475,7 +479,7 @@ int main() {
 - `::operator new`: 只分配内存而不调用构造函数。
 - `::new`: 分配内存 + 调用构造函数。在底层实现中调用`::operator new`分配内存后再构造对象
 
-```
+```cpp
 #include <iostream>
 
 class MyClass {
@@ -549,7 +553,7 @@ int main() {
 }
 ```
 2. 而placement new(`new(ptr) T()`)不会分配新内存，只会在`ptr`指向的内存上调用构造函数。
-```
+```cpp
 #include <iostream>
 
 class MyClass {
@@ -569,7 +573,7 @@ int main() {
 }
 ```
 # lvalue reference and rvalue reference and universal reference
-```
+```cpp
 Widget&& var1 = someWidget;      // here, “&&” means rvalue reference，var1虽然是右值引用，但它作为表达式的时候是左值。
  
 auto&& var2 = var1;              // here, “&&” does not mean rvalue reference, 此时var2是左值引用
@@ -605,7 +609,7 @@ const int* p = &ref;  // ✅ 现在 `p` 有合法地址
 
 3. 万能引用（universal reference）  
 If a variable or parameter is declared to have type T&& for some deduced type T, that variable or parameter is a universal reference.
-```
+```cpp
 // 在模板函数中 T&& 或者在其他地方的 auto&&
 template <typename T>
 void message2(T&& x){
@@ -641,7 +645,7 @@ int main(){
 
 ## `std::forward<T>()`
 标准库中使用重载来分别处理左值和右值
-```
+```cpp
 /**
    *  @brief  Forward an lvalue.
    *  @return The parameter cast to the specified type.
@@ -683,7 +687,7 @@ int main(){
 1. 泛型函数包装（保持左值/右值特性）  
    当编写一个 泛型函数，它接受任何参数并将其传递给另一个函数，如果不使用 std::forward<T>(arg)，右值会被错误地转换为左值。
    例如：
-```
+```cpp
 #include <iostream>
 
 void process(int& x) { std::cout << "Lvalue reference: " << x << "\n"; }
@@ -742,6 +746,96 @@ int main() {
 `move()`的参数`_TP&& __t`为万能引用，左值右值都可以  
 `static_cast<typename std::remove_reference<_Tp>::type&&>`将类型去除引用之后加上`&&`变为右值引用  
 故`move()`不论什么值都会被转换成一个右值引用
+
+# memcpy
+`memcpy`复制 `n` 字节 的数据，从 源地址 `src` 复制到 目标地址 `dst`，不会 处理数据类型或执行构造/析构函数，仅仅是二进制级别的拷贝。
+```cpp
+void *memcpy(void *dst, const void *src, size_t n);
+```
+参数：
+
+- `dst`：目标地址（必须有足够的内存空间）。
+- `src`：源地址。
+- `n`：需要复制的字节数。  
+  
+返回值：
+- `memcpy` 返回 `dst` 的指针，以便支持链式调用。
+
+
+# is_trivially_copyable
+
+## 1. 什么是 `is_trivially_copyable`？
+
+**C++ 标准（[basic.types] 6.8.2）规定**：
+> **一个类型是 `is_trivially_copyable`，当且仅当它的拷贝/移动构造和拷贝/移动赋值运算符是平凡的，并且它的析构函数是平凡的。**
+
+✅ 这意味着：
+- **可以安全地按二进制方式复制（`memcpy`）**
+- **不依赖构造函数或析构函数进行特殊初始化或清理**
+- **可以存储在 `union` 里**
+- **可以通过 `memcpy` 拷贝而不影响程序逻辑**
+
+示例：
+```cpp
+#include <iostream>
+#include <type_traits>
+
+struct Trivial {
+    int x, y;
+}; // Trivially Copyable ✅
+
+struct NonTrivial {
+    std::string s;  // 非平凡成员
+}; // Not Trivially Copyable ❌
+
+int main() {
+    std::cout << std::boolalpha;
+    std::cout << "Trivial: " << std::is_trivially_copyable<Trivial>::value << '\n'; // true
+    std::cout << "NonTrivial: " << std::is_trivially_copyable<NonTrivial>::value << '\n'; // false
+}
+```
+## 2. 为什么`memcpy`只能用于`is_trivially_copyable`?
+**(1)`memcpy`是裸拷贝**  
+`memcpy`按字节复制数据，不执行任何构造，析构或初始化操作。例如：
+```
+Trivial a = {1, 2};
+Trivial b;
+std::memcpy(&b, &a, sizeof(Trivial));  // ✅ 合法
+std::cout << b.x << ", " << b.y << std::endl; // 1, 2
+```
+**(2)**
+`memcpy` 不能用于非 `Trivially Copyable` 类型  
+例如：
+如果 `memcpy` 复制 `std::string`，会导致未定义行为（UB）：
+```cpp
+#include <iostream>
+#include <cstring>
+#include <string>
+
+struct NonTrivial {
+    std::string s;
+};
+
+int main() {
+    NonTrivial a{"hello"};
+    NonTrivial b;
+    std::memcpy(&b, &a, sizeof(NonTrivial));  // ❌ UB
+
+    std::cout << b.s << std::endl; // ❓ 未定义行为
+}
+```
+- `std::string`管理一个动态`char*`(堆内存)
+- `memcpy`只是复制指针地址，不会复制堆内存。
+- 结果导致:  
+b.s 仍然指向 a.s 的数据，但 b.s 认为自己拥有这块内存（浅拷贝）。  
+当 b.s 析构时，它会释放 a.s 的数据，导致 a.s 变成悬空指针。  
+最终导致双重释放（double free），程序崩溃
+
+**(3)`memcpy`和`std::copy`**
+- `memcpy`直接复制二进制数据。
+- `std::copy`会调用拷贝构造函数。
+
+
 
 # 红黑树
 https://blog.csdn.net/cy973071263/article/details/122543826
