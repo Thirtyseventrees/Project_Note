@@ -7,6 +7,13 @@
     - [3. 初始化（Initialization）](#3-初始化initialization)
     - [4.赋值（Assignment）](#4赋值assignment)
   - [decltype()](#decltype)
+  - [void\* 指针](#void-指针)
+  - [`union`](#union)
+  - [`restrict`关键字（c语言）](#restrict关键字c语言)
+  - [functional](#functional)
+  - [lambda表达式](#lambda表达式)
+- [智能指针](#智能指针)
+  - [`std::shared_ptr`](#stdshared_ptr)
 - [class 相关：](#class-相关)
   - [static关键字](#static关键字)
   - [explicit关键字](#explicit关键字)
@@ -33,6 +40,20 @@
   - [1. 什么是 `is_trivially_copyable`？](#1-什么是-is_trivially_copyable)
   - [2. 为什么`memcpy`只能用于`is_trivially_copyable`?](#2-为什么memcpy只能用于is_trivially_copyable)
 - [红黑树](#红黑树)
+- [C++多线程编程](#c多线程编程)
+  - [C++ 内存序（Memory Order）概述](#c-内存序memory-order概述)
+    - [为什么需要内存序？](#为什么需要内存序)
+    - [常见的几种内存序](#常见的几种内存序)
+    - [如何选择合适的内存序？](#如何选择合适的内存序)
+    - [总结](#总结)
+  - [`std::mutex`](#stdmutex)
+    - [基本使用](#基本使用)
+    - [使用RAII方式加锁解锁](#使用raii方式加锁解锁)
+  - [`std::condtion_variable`](#stdcondtion_variable)
+    - [基本原理](#基本原理)
+    - [核心函数](#核心函数)
+    - [典型案例：生产者-消费者](#典型案例生产者-消费者)
+  - [`std::future`](#stdfuture)
 
 # 收获
 1. 使用Address Sanitizer(ASan)检查出内存错误：
@@ -127,6 +148,308 @@ decltype(a + b) c = 30;  // `c` 的类型是 `int`
 int x = 10;
 decltype(x) a = x;   // `a` 是 `int`
 decltype((x)) b = x; // `b` 是 `int&`
+```
+
+## void* 指针
+`void*`是 "无类型指针"（void pointer），表示它可以指向任何类型的数据。在 C 和 C++ 语言中，它被广泛用于泛型编程、动态内存管理和与底层 API（如 `malloc()` 和 `free()`）交互。
+
+1. `void*`的特点
+   - **不能直接解引用**：由于`void*`没有具体类型，不能直接通过`*ptr`访问值，必须先转换成合适的类型。
+   - **可以转换为任何指针**： 任何指针类型都可以转换成`void*`,反之亦然（需要显示转换）。
+   - **常用于通用函数**：例如`malloc()`返回`void*`，因为它分配的内存可以存储任何类型的数据。
+
+## `union`
+在 C++ 中，`union`（联合体）是一种特殊的 数据结构，它允许 多个变量共用同一块内存。`union` 类似于 `struct`，但所有成员共享同一块内存区域，因此它的大小取决于 最大的成员变量。
+
+```c
+#include <iostream>
+
+union Data {
+    int i;
+    float f;
+    char c;
+};
+
+int main() {
+    Data d;
+    d.i = 42;
+    std::cout << "整数 i: " << d.i << std::endl;
+
+    d.f = 3.14f;
+    std::cout << "浮点数 f: " << d.f << std::endl;
+
+    d.c = 'A';
+    std::cout << "字符 c: " << d.c << std::endl;
+
+    std::cout << "再次访问 i: " << d.i << std::endl; // ⚠️ 可能被覆盖
+}
+```
+结果：
+```c
+整数 i: 42
+浮点数 f: 3.14
+字符 c: A
+再次访问 i: 1094795585  // ⚠️ i 的值被 f 覆盖
+```
+
+- `union`的所有成员共享一块内存，修改一个成员，会覆盖其他成员。
+- `union` 大小等于最大成员的大小（对齐时可能稍大）。
+- `union` 只能存储一个值，因为多个成员共用同一块内存。
+
+## `restrict`关键字（c语言）
+restrict 是 C 语言中的类型限定符，用于指针，表示该指针是访问某块内存的唯一方式。它告诉编译器不会通过其他指针访问相同的内存，从而允许编译器优化代码，提高性能。
+
+restrict 关键字是 C99 标准引入的，C++ 没有原生支持（但一些编译器提供扩展，如 \_\_restrict\_\_ 或 __restrict）。
+
+例如：
+```c
+void copy(int *restrict dest, const int *restrict src, size_t n) {
+    for (size_t i = 0; i < n; i++) {
+        dest[i] = src[i];  // 编译器可以优化
+    }
+}
+```
+
+`restrict`告诉编译器`dest`和`src`指向的内存区域不会重叠，代码可以安全地优化，比如向量化（SIMD）
+
+## functional
+std::function<void()> 代表无参数且无返回值的函数签名，因此不能直接接受一个有参数的函数指针。但可以通过绑定参数的方式，使其适配 std::function<void()>。
+
+```c
+#include <iostream>
+#include <functional>
+
+void myFunc(int x) {
+    std::cout << "Value: " << x << std::endl;
+}
+
+int main() {
+    std::function<void()> func = std::bind(myFunc, 42);  // 绑定参数 x=42
+    func();  // 输出 "Value: 42"
+    return 0;
+}
+```
+
+## lambda表达式
+Lambda 表达式的基本语法如下：
+```
+[捕获列表](参数列表) -> 返回类型 { 函数体 };
+```
+其中：
+- 捕获列表 [ ]：定义 lambda 如何捕获外部变量（值捕获 =，引用捕获 &）。
+- 参数列表 ( )：类似普通函数的参数列表（可以省略）。
+- 返回类型 ->（可选）：可以省略，编译器会自动推导。
+- 函数体 {}：实际的代码逻辑。
+
+```c
+#include <iostream>
+
+int main() {
+    auto add = [](int a, int b) { return a + b; };
+    std::cout << "3 + 5 = " << add(3, 5) << std::endl; // 输出 8
+    return 0;
+}
+```  
+
+```c
+#include <iostream>
+
+int main() {
+    auto divide = [](double a, double b) -> double {
+        if (b == 0) return 0;
+        return a / b;
+    };
+    std::cout << "10 / 3 = " << divide(10, 3) << std::endl; // 输出 3.33333
+    return 0;
+}
+```
+
+1. 值捕获`[=]`（拷贝）
+值捕获会 拷贝 变量，因此在 Lambda 内部修改变量不会影响外部。
+```c
+#include <iostream>
+
+int main() {
+    int x = 10;
+    auto lambda = [=]() { std::cout << "x = " << x << std::endl; };
+    lambda();
+    return 0;
+}
+```
+
+2. 引用捕获`[&]`（引用）
+```c
+#include <iostream>
+
+int main() {
+    int x = 10;
+    auto lambda = [&]() { x += 5; };
+    lambda();
+    std::cout << "x = " << x << std::endl; // 输出 15
+    return 0;
+}
+```
+
+3. 指定捕获变量
+```c
+#include <iostream>
+
+int main() {
+    int a = 10, b = 20;
+    auto lambda = [a, &b]() {
+        // a 被值捕获，无法修改
+        // b 被引用捕获，可以修改
+        // a += 5; // ❌ 编译错误
+        b += 5;   // ✅ 可以修改
+    };
+
+    lambda();
+    std::cout << "a = " << a << ", b = " << b << std::endl; // a = 10, b = 25
+    return 0;
+}
+```
+
+# 智能指针
+
+## `std::shared_ptr`
+在 C++ 中，`std::shared_ptr` 是一个采用引用计数（Reference Counting）策略的智能指针，其核心思想是“当最后一个指针离开作用域时，才真正释放资源（内存、文件等）”。从源码或实现细节的角度来看，`std::shared_ptr` 大体上可分为以下几个关键点：
+1. 控制块（Control Block）
+   - 当你用 `std::shared_ptr` 管理一块堆上分配的对象时，运行库（Standard Library Implementation）通常会在堆上额外创建一个“控制块”来管理这块资源的引用计数信息和其他必要的元数据（如自定义删除器、类型擦除用的指针等）。
+    - 控制块包含：
+       - use_count：共享计数，用于统计有多少个 shared_ptr 在管理同一个对象；
+       - weak_count：弱计数，用于统计有多少个 weak_ptr 与这个对象相关联（不影响对象的生命周期）；
+       - deleter：自定义删除器，或者默认删除器（调用 delete），当 use_count 归零时调用；
+       - 指向实际对象的指针（有时这个指针和 shared_ptr 内部那个指针不是同一个东西，取决于实现）。
+   - 当我们调用 make_shared<T>(...) 时，C++ 实现通常会将 T 对象与控制块一起“打包”分配在同一块连续内存里，从而减少一次内存分配。
+```cpp
+// 简化版的“控制块”结构
+struct shared_count
+{
+    std::atomic<long> use_count;  // 共享计数
+    std::atomic<long> weak_count; // 弱计数 (本例子中没完整演示 weak_ptr)
+
+    // 构造时，一般让 use_count=1，weak_count=1（兼容 future weak_ptr）
+    shared_count() : use_count(1), weak_count(1) {}
+
+    // 增加共享引用计数
+    void add_ref_copy() {
+        use_count.fetch_add(1, std::memory_order_relaxed);
+    }
+
+    // 释放一个共享引用，返回释放后剩余的共享计数
+    long release() {
+        // fetch_sub 返回的是“减少前”的值，所以要-1
+        return use_count.fetch_sub(1, std::memory_order_acq_rel) - 1;
+    }
+
+    // 增加一个弱引用（演示用）
+    void weak_add_ref() {
+        weak_count.fetch_add(1, std::memory_order_relaxed);
+    }
+
+    // 释放一个弱引用，并返回释放后的弱计数
+    long weak_release() {
+        return weak_count.fetch_sub(1, std::memory_order_acq_rel) - 1;
+    }
+};
+```
+
+
+2. `shared_ptr`本身的内存结构：
+    - `shared_ptr`通常只包括两个指针成员  
+       1. px: 指向所管理对象的指针（可能是原始指针，也可能是某种类型擦除过的指针，视具体实现而定）。
+       2. pn：指向上述控制块的指针。
+    - 每当我们拷贝一个 `shared_ptr` 时，就会把两个指针都拷贝一遍，并把控制块中的 `use_count` 原子地加 1；当销毁一个 `shared_ptr`  时，就会把 `use_count` 原子地减 1，并检查是否归零。
+```cpp
+// 非常简化的 shared_ptr
+template<typename T>
+class shared_ptr
+{
+private:
+    T* px;               // 指向实际对象
+    shared_count* pn;    // 指向控制块
+
+public:
+    // 1. 默认构造：空指针，空控制块
+    shared_ptr() : px(nullptr), pn(nullptr) {}
+
+    // 2. 通过原始指针构造
+    explicit shared_ptr(T* p) : px(p) {
+        // 分配一个新的控制块，use_count = 1，weak_count = 1
+        pn = new shared_count();
+    }
+
+    // 3. 拷贝构造
+    shared_ptr(const shared_ptr& other)
+    {
+        px = other.px;
+        pn = other.pn;
+        // 引用计数+1
+        if (pn) {
+            pn->add_ref_copy();
+        }
+    }
+
+    // 4. 拷贝赋值
+    shared_ptr& operator=(const shared_ptr& other)
+    {
+        // 自我赋值保护
+        if (this != &other) {
+            // 先把自己原来的资源释放掉
+            if (pn) {
+                // release() 返回值是 “减少后的 use_count”
+                if (pn->release() == 0) {
+                    delete px; // 释放实际对象
+                    px = nullptr;
+                    // 当 use_count == 0 后，再让 weak_count 也减 1
+                    if (pn->weak_release() == 0) {
+                        delete pn; // 当 weak_count 也为 0 时，释放控制块
+                    }
+                }
+            }
+            // 再接管 new 进来的资源
+            px = other.px;
+            pn = other.pn;
+            // 引用计数+1
+            if (pn) {
+                pn->add_ref_copy();
+            }
+        }
+        return *this;
+    }
+
+    // 5. 析构函数
+    ~shared_ptr()
+    {
+        if (pn) {
+            // 减少一个共享引用
+            if (pn->release() == 0) {
+                // 说明这是最后一个共享指针，释放资源
+                delete px;
+                px = nullptr;
+                // 减少一个弱引用；若弱引用也为 0，则释放控制块
+                if (pn->weak_release() == 0) {
+                    delete pn;
+                }
+            }
+        }
+    }
+
+    // 常用接口
+    T* get() const { return px; }
+
+    // 返回当前的 use_count 值
+    long use_count() const {
+        return pn ? pn->use_count.load(std::memory_order_acquire) : 0;
+    }
+
+    // 重载 -> 操作符，方便使用
+    T* operator->() const { return px; }
+
+    // 重载 * 操作符，方便使用
+    T& operator*()  const { return *px; }
+};
+
 ```
 
 # class 相关：
@@ -839,3 +1162,301 @@ b.s 仍然指向 a.s 的数据，但 b.s 认为自己拥有这块内存（浅拷
 
 # 红黑树
 https://blog.csdn.net/cy973071263/article/details/122543826
+
+# C++多线程编程
+
+## C++ 内存序（Memory Order）概述
+
+在 C++11 及其之后的标准中，为了更好地支持并发编程，C++ 提供了原子操作（`std::atomic`）以及一套内存模型（Memory Model）。内存模型通过内存序（Memory Order）来规定不同原子操作之间在内存访存顺序上的约束，以确保多线程环境中的正确性和性能之间的平衡。
+
+### 为什么需要内存序？
+在多线程环境下，编译器和处理器会对指令进行各种优化和重排。如果没有显式的同步或序列保证，线程间对于共享数据的更新和读取可能出现不可预期的行为。通过指定内存序，开发者可以告诉编译器和硬件：在哪些情况下需要禁止重排、在哪些情况下可以放松重排，从而在保证正确性的同时获取更高的执行效率。
+
+### 常见的几种内存序
+
+C++ 标准定义了六种内存序（`std::memory_order`）枚举值，每种的强约束程度各不相同。
+
+1. **`memory_order_relaxed`**
+   - 最弱的内存序，不提供任何同步或者顺序保证。
+   - 仅保证对该原子操作的原子性（不可分割），但对其他读写操作的可见性和顺序不作保证。
+   - 适用于计数器、统计量等某些对顺序无严格需求的场景。
+   - 示例（线程安全计数，但无序保证）：
+     ```cpp
+     #include <atomic>
+     #include <iostream>
+
+     std::atomic<int> counter{0};
+
+     void threadFunc() {
+         for (int i = 0; i < 10000; i++) {
+             // 仅保证对 counter++ 的原子性，无其他顺序保障
+             counter.fetch_add(1, std::memory_order_relaxed);
+         }
+     }
+     ```
+
+2. **`memory_order_consume`**（已被大部分编译器废弃或视为 `memory_order_acquire` 处理）
+   - 最初的定义是：保证对依赖于本次加载结果的操作可见性，但编译器在实现中普遍有争议，目前实际意义不大。
+   - 因此，大多数情况下可以忽略或视为 `memory_order_acquire`。
+
+3. **`memory_order_acquire`**
+   - 在从原子对象进行“读取/加载”时使用，可防止本线程中后续的所有读写操作重排到该加载之前。
+   - 即，“获取”语义：在当前线程中，后面的操作不得跑到这个加载之前。
+   - 其与 `memory_order_release` 配合，可实现类似“互斥锁”般的同步。
+   - 示例：
+     ```cpp
+     #include <atomic>
+
+     std::atomic<bool> flag{false};
+     int sharedData = 0;
+
+     void producer() {
+         sharedData = 42; // 准备数据
+         flag.store(true, std::memory_order_release); // 发布数据
+     }
+
+     void consumer() {
+         while (!flag.load(std::memory_order_acquire)) {
+             // 等待 flag 变为 true
+         }
+         // 这里读取 sharedData 一定看到最新值 42
+     }
+     ```
+
+4. **`memory_order_release`**
+   - 在对原子对象进行“写入/存储”时使用，可防止当前线程中之前的所有读写操作被重排到存储操作之后。
+   - 即，“释放”语义：在当前线程中，之前的操作不得跑到这个存储之后。
+   - 与 `memory_order_acquire` 配合，就可以在线程之间传递数据的可见性。
+
+5. **`memory_order_acq_rel`**
+   - 同时具有 `memory_order_acquire` 和 `memory_order_release` 的语义。
+   - 适用于原子操作既是读又是写的场景（如 `fetch_add`、`compare_exchange` 等）。
+   - 在这样的复合操作中，既需要在读取阶段防止后续重排，也需要在写入阶段防止之前重排。
+
+6. **`memory_order_seq_cst`（Sequential Consistency）**
+   - 最严格的一种内存序，所有使用 `memory_order_seq_cst` 的原子操作，会如同**全局顺序一致**地执行。
+   - 对所有使用此内存序的操作来说，程序表现得就像所有的这些原子操作都按照全局统一顺序被依次执行一样。
+   - 编译器和处理器都必须保证这些操作不会被乱序到其他 `seq_cst` 操作之前或之后。
+   - 在保证程序正确性方面最简单直接，但通常性能成本最高。
+   - 示例（全局顺序一致性）：
+     ```cpp
+     #include <atomic>
+     #include <iostream>
+     #include <thread>
+
+     std::atomic<int> a{0};
+     std::atomic<int> b{0};
+
+     void thread1() {
+         a.store(1, std::memory_order_seq_cst);
+         std::cout << "thread1 sees b = " << b.load(std::memory_order_seq_cst) << std::endl;
+     }
+
+     void thread2() {
+         b.store(1, std::memory_order_seq_cst);
+         std::cout << "thread2 sees a = " << a.load(std::memory_order_seq_cst) << std::endl;
+     }
+
+     int main() {
+         std::thread t1(thread1);
+         std::thread t2(thread2);
+         t1.join();
+         t2.join();
+         return 0;
+     }
+     ```
+   - 理论上，这个程序**不会**出现 `thread1 sees b = 0` 与 `thread2 sees a = 0` 同时发生的情况（在 `seq_cst` 语义下）。
+
+### 如何选择合适的内存序？
+- **`memory_order_relaxed`**：若仅需要原子性，不关心顺序保证，例如对计数器的统计或非关键性数据的刷新，选用它可以获得最佳性能。
+- **`memory_order_release` / `memory_order_acquire`**：常用于实现典型的生产者-消费者、单向数据依赖场景；写线程释放数据，读线程获取数据。
+- **`memory_order_acq_rel`**：既需要获取又需要释放的复合读改写操作（如 `fetch_add`、`compare_exchange_strong` 等）。
+- **`memory_order_seq_cst`**：在需要全局顺序一致性、最简单易理解的情形下，或者无法确定其他更松的序时，可以作为安全默认值，但往往性能相对较差。
+
+### 总结
+C++ 提供的内存序机制允许我们在保证并发正确性的同时，通过选择不同程度的顺序约束来获得更高的性能。合理地选择内存序，需要结合应用场景对于数据一致性、可见性、并发冲突及可维护性等多方面因素进行权衡。如果对并发编程和内存模型比较陌生，使用默认的 `memory_order_seq_cst` 则能够保证最简单直观的语义；而在高性能场景下，可能需要熟练应用 `release/acquire` 或更弱的内存序以充分挖掘潜能。
+
+
+## `std::mutex`
+互斥量（Mutex）可以将一段代码保护起来，使得在任意时刻只有一个线程可以执行这段被保护的代码（或访问被保护的数据），以此来防止数据竞争（Data Race）。
+
+### 基本使用
+C++11 标准库在头文件 `<mutex>` 中提供了 `std::mutex`。使用互斥量的典型步骤为：
+1. 创建一个 `std::mutex` 对象（通常作为共享对象）。
+2. 在需要保护的临界区（临界资源）前，对互斥量进行上锁（lock）。
+3. 执行完临界区操作后，对互斥量解锁（unlock）。
+
+手动加锁解锁:
+```cpp
+#include <mutex>
+#include <thread>
+#include <iostream>
+
+std::mutex mtx;          // 互斥量对象
+int sharedCounter = 0;   // 共享数据
+
+void increment() {
+    for (int i = 0; i < 10000; ++i) {
+        mtx.lock();      // 加锁
+        ++sharedCounter; // 临界区
+        mtx.unlock();    // 解锁
+    }
+}
+
+int main() {
+    std::thread t1(increment);
+    std::thread t2(increment);
+    t1.join();
+    t2.join();
+    std::cout << "Result: " << sharedCounter << std::endl;
+    return 0;
+}
+```
+
+### 使用RAII方式加锁解锁
+为了避免手动 `lock/unlock` 带来的风险，通常推荐使用 `std::lock_guard` 或 `std::unique_lock` 这类 RAII（Resource Acquisition Is Initialization）类型。
+
+- `std::lock_guard` 在构造函数中获取锁，在析构函数中释放锁，期间不支持手动解锁。
+- `std::unique_lock` 也在构造时上锁、析构时解锁，但还允许手动锁/解锁。
+```cpp
+#include <mutex>
+#include <thread>
+#include <iostream>
+
+std::mutex mtx;
+int sharedCounter = 0;
+
+void increment() {
+    for (int i = 0; i < 10000; ++i) {
+        // RAII 方式加锁，会在作用域结束时自动解锁
+        std::lock_guard<std::mutex> lk(mtx);
+        ++sharedCounter;
+    }
+}
+
+int main() {
+    std::thread t1(increment);
+    std::thread t2(increment);
+    t1.join();
+    t2.join();
+    std::cout << "Result: " << sharedCounter << std::endl;
+    return 0;
+}
+```
+
+## `std::condtion_variable`
+互斥量能确保临界区的互斥访问，但有些场景希望让线程在等待某些条件满足时进入阻塞状态，避免忙等（busy waiting）。一个典型例子是生产者-消费者模式，消费者线程需要等待“队列中有数据可消费”这一条件满足，而生产者线程负责往队列中放数据。
+
+如果只用互斥量加循环来实现，消费者可能需要不断轮询队列是否为空，会浪费 CPU 时间。为此，C++ 提供了 `std::condition_variable` 来进行高效的事件通知和等待机制。
+
+### 基本原理
+- 线程 A（等待方）调用 `cv.wait(lk, predicate)` 时，如果 `predicate` 条件不满足，线程 A 就会进入阻塞状态，并且自动释放与其绑定的互斥量 `lk`（这是 condition_variable 做的关键事情）。
+- 当线程 B（通知方）完成了改变数据状态后，调用 `cv.notify_one()` 或 `cv.notify_all()` 来唤醒一个或多个等待线程。被唤醒后，线程 A 会重新获取 `lk`，并再次检查 `predicate`，若条件满足则继续执行，否则又回到等待状态。  
+
+### 核心函数
+
+- `wait(std::unique_lock<std::mutex>& lk)`
+等待通知，进入阻塞状态前会先解锁 lk。被唤醒后，函数会重新获取 lk 并返回，但不检查任何条件。需自行在外层用循环判断条件是否满足。
+- `wait(std::unique_lock<std::mutex>& lk, Predicate pred)`
+带谓词版本，内部会循环检查 pred 是否为 true，只有满足才退出 wait；否则继续等待。可以避免额外的手动循环。
+- `notify_one()`
+唤醒一个正在等待的线程。若无线程等待，则该调用无效果。
+- `notify_all()`
+唤醒所有正在等待的线程。
+
+### 典型案例：生产者-消费者
+```cpp
+#include <iostream>
+#include <mutex>
+#include <condition_variable>
+#include <thread>
+#include <queue>
+#include <chrono>
+
+std::mutex mtx;
+std::condition_variable cv;
+std::queue<int> goods;         // 共享队列
+bool finished = false;         // 标识生产结束
+
+// 消费者线程
+void consumer(int id) {
+    while (true) {
+        std::unique_lock<std::mutex> lk(mtx);
+        // 等待条件：当队列为空且未结束生产时，阻塞等待
+        cv.wait(lk, [] { return !goods.empty() || finished; });
+
+        if (!goods.empty()) {
+            int item = goods.front();
+            goods.pop();
+            lk.unlock();  // 解锁让其他线程并发地拿数据
+            std::cout << "[Consumer " << id << "] consumed item: " << item << "\n";
+        } else if (finished) {
+            // 生产已经结束，且此时队列为空
+            std::cout << "[Consumer " << id << "] finished.\n";
+            break;
+        }
+    }
+}
+
+// 生产者线程
+void producer(int itemCount) {
+    for (int i = 1; i <= itemCount; ++i) {
+        {
+            std::lock_guard<std::mutex> lk(mtx);
+            goods.push(i);
+            std::cout << "[Producer] produced item: " << i << "\n";
+        }
+        cv.notify_one();  // 通知一个等待的消费者
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+    {
+        std::lock_guard<std::mutex> lk(mtx);
+        finished = true;
+    }
+    cv.notify_all();  // 通知所有消费者生产结束
+}
+
+int main() {
+    std::thread c1(consumer, 1);
+    std::thread c2(consumer, 2);
+    std::thread p1(producer, 10);
+
+    c1.join();
+    c2.join();
+    p1.join();
+
+    return 0;
+}
+```
+
+## `std::future`
+
+`std::future` 是 C++11 引入的一个异步结果获取机制。它包装了一个可能会在将来某个时刻才完成计算的结果，你可以通过 `future` 在后续的代码里等待或获取这个结果。
+
+当在代码中开启一个异步操作比如使用 `std::async`、`std::packaged_task` 或线程池提交一个任务），这个异步操作可能还没有立刻计算出结果。
+- `std::future` 就是存储这个将来要计算出结果的容器。
+- 你可以在需要的时候，通过 `std::future::get()` 来拿到结果。
+- 如果异步操作尚未完成，那么 `get()` 会阻塞线程直到结果准备就绪。
+- 如果不需要结果或仅仅检查他是否完成，可以使用`future.wait_for()`，`future_wait_until()`等非阻塞或超时等待。
+```c
+#include <iostream>
+#include <future>
+#include <thread>
+
+int main() {
+    // 启动一个异步任务，返回std::future
+    std::future<int> fut = std::async(std::launch::async, [] {
+        // 模拟耗时计算
+        std::this_thread::sleep_for(std::chrono::seconds(2));
+        return 42;  // 计算结果
+    });
+
+    std::cout << "Doing something else...\n";
+
+    // 在需要结果时，再调用get()，如果任务还没结束就会在这里阻塞等待
+    int result = fut.get();
+    std::cout << "Result is: " << result << std::endl;
+
+    return 0;
+}
+```

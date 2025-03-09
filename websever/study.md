@@ -3,6 +3,9 @@
   - [IP地址](#ip地址)
     - [分类寻址](#分类寻址)
   - [子网掩码](#子网掩码)
+- [操作系统基础](#操作系统基础)
+  - [内存页（Memory Page）](#内存页memory-page)
+    - [内存分页机制](#内存分页机制)
 - [1. TCP/IP协议](#1-tcpip协议)
   - [1.1 TCP/IP协议族体系结构以及主要协议](#11-tcpip协议族体系结构以及主要协议)
     - [1.1.1 数据链路层](#111-数据链路层)
@@ -65,6 +68,53 @@
   - [4.6 TCP半连接队列和全连接队列](#46-tcp半连接队列和全连接队列)
   - [4.7 发起连接](#47-发起连接)
   - [4.8 关闭连接](#48-关闭连接)
+  - [4.9 数据读写](#49-数据读写)
+    - [4.9.1 TCP数据读写（`recv`和`send`）](#491-tcp数据读写recv和send)
+    - [4.9.2 UDP数据读写](#492-udp数据读写)
+    - [4.9.3 通用数据读写函数](#493-通用数据读写函数)
+  - [4.10 地址信息函数](#410-地址信息函数)
+  - [4.11 socket选项](#411-socket选项)
+  - [4.12 网络信息API](#412-网络信息api)
+  - [4.12.1 gethostbyname和gethostbyaddr](#4121-gethostbyname和gethostbyaddr)
+  - [4.12.2 getservbyname和getservbyport](#4122-getservbyname和getservbyport)
+- [文件描述符的引用计数](#文件描述符的引用计数)
+- [5. 高级I/O函数](#5-高级io函数)
+  - [5.1 pipe函数](#51-pipe函数)
+  - [5.2 dup函数和dup2函数](#52-dup函数和dup2函数)
+  - [5.3 readv函数和writev函数](#53-readv函数和writev函数)
+  - [5.4 sendfile函数](#54-sendfile函数)
+  - [5.5 mmap函数和munmap函数](#55-mmap函数和munmap函数)
+  - [5.6 splice函数](#56-splice函数)
+  - [5.7 tree函数](#57-tree函数)
+  - [5.8 fcntl函数](#58-fcntl函数)
+- [6. Linux服务器程序规范](#6-linux服务器程序规范)
+- [9. IO复用](#9-io复用)
+  - [9.1 select系统调用](#91-select系统调用)
+    - [9.1.1 select API](#911-select-api)
+    - [9.1.2 文件描述符就绪条件](#912-文件描述符就绪条件)
+    - [9.1.3 处理带外数据](#913-处理带外数据)
+- [9.2 poll系统调用](#92-poll系统调用)
+  - [9.3 epoll系列系统调用](#93-epoll系列系统调用)
+    - [9.3.1 内核事件表, epoll\_create, epoll\_ctl](#931-内核事件表-epoll_create-epoll_ctl)
+    - [9.3.2 epoll\_wait函数](#932-epoll_wait函数)
+    - [9.3.3 LT和ET模式](#933-lt和et模式)
+- [13. 多进程编程](#13-多进程编程)
+  - [13.1 fork系统调用](#131-fork系统调用)
+  - [13.2 exec系列系统调用](#132-exec系列系统调用)
+  - [13.3 处理僵尸进程](#133-处理僵尸进程)
+  - [13.4 管道](#134-管道)
+  - [13.5 信号量](#135-信号量)
+    - [13.5.1 信号量原语](#1351-信号量原语)
+    - [13.5.2 `semget`系统调用](#1352-semget系统调用)
+- [14. 多线程编程](#14-多线程编程)
+  - [14.1 创建线程和结束线程](#141-创建线程和结束线程)
+    - [14.1.1 `pthread_create`](#1411-pthread_create)
+    - [14.1.2 `pthread_exit`](#1412-pthread_exit)
+    - [14.1.3 `pthread_join`](#1413-pthread_join)
+    - [14.1.4 `pthread_detach`](#1414-pthread_detach)
+    - [14.1.5 `pthread_cancel`](#1415-pthread_cancel)
+  - [14.2 线程属性](#142-线程属性)
+  - [14.3 POSIX信号量](#143-posix信号量)
 
 # 计网基础
 
@@ -80,6 +130,25 @@ A,B,C三类中前面的分类位和网络号是集中分配的，后面的主机
 
 通过将IP地址与掩码使用按位与的操作来确定一个IP地址的网络/子网部分的结束和主机部分的开始。
 
+# 操作系统基础
+
+## 内存页（Memory Page）
+内存页（Memory Page） 是计算机内存管理的基本单位，操作系统将物理内存划分成 固定大小的块，这些块被称为页（Page）。  
+
+现代操作系统使用 虚拟内存（Virtual Memory），它将进程的地址空间与物理内存进行映射。由于内存管理涉及大量数据的分配、回收，为了提高效率，操作系统按固定大小的“页”进行管理，而不是每次分配/释放任意大小的内存块。  
+
+### 内存分页机制
+
+内存管理使用分页（Paging）机制：
+1. 虚拟地址：
+   - 进程使用的地址空间是虚拟的，并不直接对应物理地址。
+2. 页表：
+   - 负责记录虚拟地址和物理地址之间的映射关系。
+   - 每个进程都有自己的页表，操作系统通过页表来查找某个虚拟地址对应的物理内存。
+3. 页面映射：
+   - 当进程访问某个内存地址时，CPU先查找页表，找到对应的物理地址，然后访问物理内存。
+4. 缺页异常：
+   - 如果进程访问的虚拟地址没有映射到物理地址，则会触发缺页异常，操作系统会尝试加载该页。
 
 # 1. TCP/IP协议
 ## 1.1 TCP/IP协议族体系结构以及主要协议
@@ -878,7 +947,7 @@ ssthresh = max(FlightSize / 2, 2 * SMSS)
 Linux提供了如下4个函数来完成主机字节序和网络字节序之间的转换：
 
 ```c
-#include＜netinet/in.h＞
+#include<netinet/in.h>
 unsigned long int htonl(unsigned long int hostlong);
 unsigned short int htons(unsigned short int hostshort);
 unsigned long int ntohl(unsigned long int netlong);
@@ -891,7 +960,7 @@ unsigned short int ntohs(unsigned short int netshort);
 
 socket网络编程接口中表示socket地址的是结构体sockaddr，其定义如下：
 ```c
-#include＜bits/socket.h＞
+#include<bits/socket.h>
 struct sockaddr
 {
 sa_family_t sa_family;
@@ -918,7 +987,7 @@ char sa_data[14];
 
 由上表可见，14字节的sa_data根本无法完全容纳多数协议族的地址值。因此，Linux定义了下面这个新的通用socket地址结构体：
 ```c
-#include＜bits/socket.h＞
+#include<bits/socket.h>
 struct sockaddr_storage
 {
 sa_family_t sa_family;
@@ -933,7 +1002,7 @@ char__ss_padding[128-sizeof(__ss_align)];
 
 UNIX本地域协议族
 ```c
-#include＜sys/un.h＞
+#include<sys/un.h>
 struct sockaddr_un
 {
 sa_family_t sin_family;/*地址族：AF_UNIX*/
@@ -976,7 +1045,7 @@ unsigned char sa_addr[16];/*IPv6地址，要用网络字节序表示*/
 通常，人们习惯用可读性好的字符串来表示IP地址，比如用点分十进制字符串表示IPv4地址，以及用十六进制字符串表示IPv6地址。但编程中我们需要先把它们转化为整数（二进制数）方能使用。而记录日志时则相反，我们要把整数表示的IP地址转化为可读的字符串。下面3个函数可用于用点分十进制字符串表示的IPv4地址和用网络字节序整数表示的IPv4地址之间的转换：
 
 ```c
-#include＜arpa/inet.h＞
+#include<arpa/inet.h>
 in_addr_t inet_addr(const char*strptr);
 int inet_aton(const char*cp,struct in_addr*inp);
 char* inet_ntoa(struct in_addr in);
@@ -1013,7 +1082,7 @@ address 2: 10.194.71.60
 
 下面这对更新的函数也能完成和前面3个函数同样的功能，并且它们同时适用于IPv4地址和IPv6地址：
 ```c
-#include＜arpa/inet.h＞
+#include<arpa/inet.h>
 int inet_pton(int af,const char*src,void*dst);
 const char*inet_ntop(int af,const void*src,char*dst,socklen_t cnt);
 ```
@@ -1021,7 +1090,7 @@ inet_pton函数将用字符串表示的IP地址src（用点分十进制字符串
 
 inet_ntop函数进行相反的转换，前三个参数的含义与inet_pton的参数相同，最后一个参数cnt指定目标存储单元的大小。下面的两个宏能帮助我们指定这个大小（分别用于IPv4和IPv6）：
 ```c
-#include＜netinet/in.h＞
+#include<netinet/in.h>
 #define INET_ADDRSTRLEN 16
 #define INET6_ADDRSTRLEN 46
 ```
@@ -1035,8 +1104,8 @@ inet_ntop函数进行相反的转换，前三个参数的含义与inet_pton的�
 
 UNIX/Linux的一个哲学是：所有东西都是文件。socket也不例外，它就是可读、可写、可控制、可关闭的文件描述符(`fd`)。下面的socket系统调用可创建一个socket：
 ```
-#include＜sys/types.h＞
-#include＜sys/socket.h＞
+#include<sys/types.h>
+#include<sys/socket.h>
 int socket(int domain, int type, int protocol);
 ```
 domain参数告诉系统使用哪个底层协议族。对TCP/IP协议族而言，该参数应该设置为PF_INET（Protocol Family of Internet，用于IPv4）或PF_INET6（用于IPv6）；对于UNIX本地域协议族而言，该参数应该设置为PF_UNIX。关于socket系统调用支持的所有协议族，请读者自己参考其man手册。  
@@ -1137,3 +1206,929 @@ sockfd参数是待关闭的socket。howto参数决定了shutdown的行为:
 
 由此可见，shutdown能够分别关闭socket上的读或写，或者都关闭。而close在关闭连接时只能将socket上的读和写同时关闭。  
 shutdown成功时返回0，失败则返回-1并设置errno。
+
+## 4.9 数据读写
+
+### 4.9.1 TCP数据读写（`recv`和`send`）
+
+对文件的读写操作read和write同样适用于socket。但是socket编程接口提供了几个专门用于socket数据读写的系统调用，它们增加了对数据读写的控制。其中用于TCP流数据读写的系统调用是：
+```c
+#include<sys/types.h>
+#include<sys/socket.h>
+ssize_t recv(int sockfd,void*buf,size_t len,int flags);
+ssize_t send(int sockfd,const void*buf,size_t len,int flags);
+```
+
+recv读取sockfd上的数据，buf和len参数分别指定读缓冲区的位置和大小，flags参数的含义见后文，通常设置为0即可。recv成功时返回实际读取到的数据的长度，它可能小于我们期望的长度len。因此我们可能要多次调用recv，才能读取到完整的数据。recv可能返回0，这意味着通信对方已经关闭连接了。recv出错时返回-1并设置errno。  
+
+send往sockfd上写入数据，buf和len参数分别指定写缓冲区的位置和大小。send成功时返回实际写入的数据的长度，失败则返回-1并设置errno。
+
+flags参数为数据收发提供了额外的控制，它可以取下表所示选项中的一个或几个的逻辑或。
+
+<img src="./picture/4.9.1.1.png" width="700"> 
+
+socket默认情况下是阻塞模式。
+
+在`recv`中，阻塞和非阻塞的具体差异表现在该socket在内核中的接收缓冲区为空时，是否会立刻返回。阻塞会阻塞当前线程等待接收缓冲区中有数据，而非阻塞会立刻返回。
+
+`recv`通过系统调用recvfrom进入内核态，把接收缓冲区地数据拷贝到`buf`中。  
+返回值有三种可能：
+1. 正数：成功接收到数据，返回接收到的字节数。
+2. 0：对端的正常关闭连接（发送了FIN包）。
+3. 负数：发生错误，在全局变量中包含具体错误类型
+   - 可接受错误：
+     - EAGAIN或EWOULDBLOCK：表示**非阻塞模式下**，当前接受缓冲区中无数据可读。处理方式：等待下次可读事件，无需关闭连接。
+     - EINTR：表示系统调用被信号（如SIGINT）中断。处理方式：重新调用`recv`,无需断开连接。
+   - 不可接受错误：其他错误，需要关闭资源。
+
+### 4.9.2 UDP数据读写
+
+socket编程接口中用于UDP数据报读写的系统调用是：
+```c
+#include <sys/types.h>
+#include <sys/socket.h>
+ssize_t recvfrom(int sockfd,void*buf,size_t len,int flags,struct sockaddr*src_addr,socklen_t*addrlen);
+ssize_t sendto(int sockfd,const void*buf,size_t len,int flags,const struct sockaddr*dest_addr,socklen_t addrlen);
+```
+
+recvfrom读取sockfd上的数据，buf和len参数分别指定读缓冲区的位置和大小。因为UDP通信没有连接的概念，所以我们每次读取数据都需要获取发送端的socket地址，即参数src_addr所指的内容，addrlen参数则指定该地址的长度。
+
+sendto往sockfd上写入数据，buf和len参数分别指定写缓冲区的位置和大小。dest_addr参数指定接收端的socket地址，addrlen参数则指定该地址的长度。
+
+值得一提的是，recvfrom/sendto系统调用也可以用于面向连接（STREAM）的socket的数据读写，只需要把最后两个参数都设置为NULL以忽略发送端/接收端的socket地址（因为我们已经和对方建立了连接，所以已经知道其socket地址了）。
+
+### 4.9.3 通用数据读写函数
+
+socket编程接口还提供了一对通用的数据读写系统调用。它们不仅能用于TCP流数据，也能用于UDP数据报：
+
+```c
+#include<sys/socket.h>
+ssize_t recvmsg(int sockfd,struct msghdr*msg,int flags);
+ssize_t sendmsg(int sockfd,struct msghdr*msg,int flags);
+```
+sockfd参数指定被操作的目标socket。msg参数是msghdr结构体类型的指针，msghdr结构体的定义如下：
+```c
+struct msghdr
+{
+void*msg_name;/*socket地址*/
+socklen_t msg_namelen;/*socket地址的长度*/
+struct iovec*msg_iov;/*分散的内存块，见后文*/
+int msg_iovlen;/*分散内存块的数量*/
+void*msg_control;/*指向辅助数据的起始位置*/
+socklen_t msg_controllen;/*辅助数据的大小*/
+int msg_flags;/*复制函数中的flags参数，并在调用过程中更新*/
+};
+```
+msg_name成员指向一个socket地址结构变量。它指定通信对方的socket地址。对于面向连接的TCP协议，该成员没有意义，必须被设置为NULL。这是因为对数据流socket而言，对方的地址已经知道。msg_namelen成员则指定了msg_name所指socket地址的长度。  
+
+msg_iov成员是iovec结构体类型的指针，iovec结构体的定义如下：
+```c
+struct iovec
+{
+void*iov_base;/*内存起始地址*/
+size_t iov_len;/*这块内存的长度*/
+};
+```
+
+由上可见，iovec结构体封装了一块内存的起始位置和长度。msg_iovlen指定这样的iovec结构对象有多少个。对于recvmsg而言，数据将被读取并存放在msg_iovlen块分散的内存中，这些内存的位置和长度则由msg_iov指向的数组指定，这称为分散读（scatter read）；对于
+sendmsg而言，msg_iovlen块分散内存中的数据将被一并发送，这称为集中写（gather write）。
+
+msg_control和msg_controllen成员用于辅助数据的传送。我们不详
+细讨论它们，仅在第13章介绍如何使用它们来实现在进程间传递文件
+描述符。
+
+msg_flags成员无须设定，它会复制recvmsg/sendmsg的flags参数的
+内容以影响数据读写过程。recvmsg还会在调用结束前，将某些更新后
+的标志设置到msg_flags中。
+
+recvmsg/sendmsg的flags参数以及返回值的含义均与send/recv的flags
+参数及返回值相同。
+
+## 4.10 地址信息函数
+
+在某些情况下，我们想知道一个连接socket的本端socket地址，以及远端的socket地址。下面这两个函数正是用于解决这个问题：
+```c
+#include <sys/socket.h>
+int getsockname(int sockfd,struct sockaddr*address,socklen_t*address_len);
+int getpeername(int sockfd,struct sockaddr*address,socklen_t*address_len);
+```
+
+getsockname获取sockfd对应的本端socket地址，并将其存储于address参数指定的内存中，该socket地址的长度则存储于address_len参数指向的变量中。如果实际socket地址的长度大于address所指内存区的大小，那么该socket地址将被截断。getsockname成功时返回0，失败返回-1并设置errno。  
+
+getpeername获取sockfd对应的远端socket地址，其参数及返回值的含义与getsockname的参数及返回值相同。
+
+## 4.11 socket选项
+
+如果说fcntl系统调用是控制文件描述符属性的通用POSIX方法，那么下面两个系统调用则是专门用来读取和设置socket文件描述符属性的方法：
+```c
+#include<sys/socket.h>
+int getsockopt(int sockfd,int level,int option_name,void*option_value,socklen_t* restrict option_len);
+int setsockopt(int sockfd,int level,int option_name,const void*option_value,socklen_t option_len);
+```
+
+sockfd参数指定被操作的目标socket。level参数指定要操作哪个协议的选项（即属性），比如IPv4、IPv6、TCP等。option_name参数则指定选项的名字。我们在表5-5中列举了socket通信中几个比较常用的socket选项。option_value和option_len参数分别是被操作选项的值和长度。不同的选项具有不同类型的值，如表5-5中“数据类型”一列所示。
+
+<img src="./picture/4.11.1.png" width="700"> 
+
+getsockopt和setsockopt这两个函数成功时返回0，失败时返回-1并设置errno。
+
+值得指出的是，对服务器而言，有部分socket选项只能在调用listen系统调用前针对监听socket设置才有效。这是因为连接socket只能由accept调用返回，而accept从listen监听队列中接受的连接至少已经完成了TCP三次握手的前两个步骤（因为listen监听队列中的连接至少已进入SYN_RCVD状态），这说明服务器已经往被接受连接上发送出了TCP同步报文段。但有的socket选项却应该在TCP同步报文段中设置，比如TCP最大报文段选项（回忆3.2.2小节，该选项只能由同步报文段来发送）。对这种情况，Linux给开发人员提供的解决方案是：对监听socket设置这些socket选项，那么accept返回的连接socket将自动继承这些选项。
+
+这些socket选项包括：SO_DEBUG、SO_DONTROUTE、SO_KEEPALIVE、SO_LINGER、SO_OOBINLINE、SO_RCVBUF、SO_RCVLOWAT、SO_SNDBUF、SO_SNDLOWAT、TCP_MAXSEG和TCP_NODELAY。
+
+而对客户端而言，这些socket选项则应该在调用connect函数之前设置，因为connect调用成功返回之后，TCP三次握手已完成。
+
+## 4.12 网络信息API
+
+socket地址的两个要素，即IP地址和端口号，都是用数值表示的。这不便于记忆，也不便于扩展（比如从IPv4转移到IPv6）。因此在前面的章节中，我们用主机名来访问一台机器，而避免直接使用其IP地址。同样，我们用服务名称来代替端口号。比如，下面两条telnet命令具有完全相同的作用：
+```
+telnet 127.0.0.1 80
+telnet localhost www
+```
+上面的例子中，telnet客户端程序是通过调用某些网络信息API来实现主机名到IP地址的转换，以及服务名称到端口号的转换的。下面我们将讨论网络信息API中比较重要的几个。
+
+## 4.12.1 gethostbyname和gethostbyaddr
+gethostbyname函数根据主机名称获取主机的完整信息，gethostbyaddr函数根据IP地址获取主机的完整信息。gethostbyname函数通常先在本地的/etc/hosts配置文件中查找主机，如果没有找到，再去访问DNS服务器。这些在前面章节中都讨论过。这两个函数的定义如下：
+
+```c
+#include <netdb.h>
+struct hostent* gethostbyname(const char*name);
+struct hostent* gethostbyaddr(const void*addr,size_t len,int type);
+```
+
+name参数指定目标主机的主机名，addr参数指定目标主机的IP地址，len参数指定addr所指IP地址的长度，type参数指定addr所指IP地址的类型，其合法取值包括AF_INET（用于IPv4地址）和AF_INET6（用于IPv6地址）。
+
+这两个函数返回的都是hostent结构体类型的指针，hostent结构体的定义如下：
+```c
+#include <netdb.h>
+struct hostent
+{
+char*h_name;/*主机名*/
+char**h_aliases;/*主机别名列表，可能有多个*/
+int h_addrtype;/*地址类型（地址族）*/
+int h_length;/*地址长度*/
+char**h_addr_list/*按网络字节序列出的主机IP地址列表*/
+};
+```
+
+## 4.12.2 getservbyname和getservbyport
+
+getservbyname函数根据名称获取某个服务的完整信息，getservbyport函数根据端口号获取某个服务的完整信息。它们实际上都是通过读取/etc/services文件来获取服务的信息的。这两个函数的定义如下：
+```c
+struct servent* getservbyname(const char*name,const char*proto);
+struct servent* getservbyport(int port,const char*proto);
+```
+name参数指定目标服务的名字，port参数指定目标服务对应的端口号。proto参数指定服务类型，给它传递“tcp”表示获取流服务，给它传递“udp”表示获取数据报服务，给它传递NULL则表示获取所有类型的服务。
+
+这两个函数返回的都是servent结构体类型的指针，结构体servent的定义如下：
+```c
+#include <netdb.h>
+struct servent
+{
+char*s_name;/*服务名称*/
+char**s_aliases;/*服务的别名列表，可能有多个*/
+int s_port;/*端口号*/
+char*s_proto;/*服务类型,通常是tcp或者udp*/
+};
+
+```
+
+# 文件描述符的引用计数
+在Linux或类Unix操作系统中，文件描述符的引用计数（Reference Count of File Descriptor）用于跟踪一个打开文件在系统中的引用次数，以确保文件资源在不再使用时被正确释放。
+
+**文件描述符与`struct file`**  
+   在内核中，每个打开的文件都会对应一个struct file结构，而进程使用文件描述符（File Descriptor, FD）来访问这个结构。例如：
+   ```c
+   struct file {
+    atomic_long_t f_count;  // 引用计数
+    struct inode *f_inode;
+    struct file_operations *f_op;
+    ...
+    };
+   ```
+   - f_count 是 struct file 的引用计数，表示该 struct file 结构被多少个文件描述符或进程引用。
+   - 当 f_count 变为 0 时，内核会释放该 struct file，关闭文件并释放资源。
+
+# 5. 高级I/O函数
+
+Linux提供了很多高级的I/O函数。它们并不像Linux基础I/O函数（比如open和read）那么常用（编写内核模块时一般要实现这些I/O函数），但在特定的条件下却表现出优秀的性能。本章将讨论其中和网络编程相关的几个，这些函数大致分为三类：
+
+- 用于创建文件描述符的函数，包括pipe、dup/dup2函数。
+- 用于读写数据的函数，包括readv/writev、sendfile、mmap/munmap、splice和tee函数。
+- 用于控制I/O行为和属性的函数，包括fcntl函数。
+
+## 5.1 pipe函数
+pipe函数可用于创建一个管道，以实现进程间通信。我们将在13.4节讨论如何使用管道来实现进程间通信，本章只介绍其基本使用方式。pipe函数的定义如下：
+```c
+#include <unistd.h>
+int pipe(int fd[2]);
+```
+pipe函数的参数是一个包含两个int型整数的数组指针。该函数成功时返回0，并将一对打开的文件描述符值填入其参数指向的数组。如果失败，则返回-1并设置errno。
+- `pipefd[0]`：管道的读端（用于读取数据）。
+- `pipefd[1]`：管道的写端（用于写入数据）。
+
+管道特性:
+- 单向通信：数据只能从 pipefd[1]（写端）流向 pipefd[0]（读端）。
+- 有缓存：内核提供一个 固定大小（通常 4KB 或 64KB） 的缓存区，用于存储写入的数据。
+- 阻塞行为：
+    - 读端阻塞：当管道为空，read() 会阻塞，直到写端有数据或关闭。
+    - 写端阻塞：当管道满了，write() 会阻塞，直到读端读取数据或关闭。  
+
+如果要实现双向的数据传输，就应该使用两个管道。默认情况下，这一对文件描述符都是阻塞的。
+
+如果管道的写端文件描述符fd[1]的引用计数减少至0，即没有任何进程需要往管道中写入数据，则针对该管道的读端文件描述符fd[0]的read操作将返回0，即读取到了文件结束标记（End Of File，EOF）；  
+反之，如果管道的读端文件描述符fd[0]的引用计数减少至0，即没有任何进程需要从管道读取数据，则针对该管道的写端文件描述符fd[1]的write操作将失败，并引发SIGPIPE信号。
+
+管道内部传输的数据是字节流，这和TCP字节流的概念相同。但二者又有细微的区别。应用层程序能往一个TCP连接中写入多少字节的数据，取决于对方的接收通告窗口的大小和本端的拥塞窗口的大小。而管道本身拥有一个容量限制，它规定如果应用程序不将数据从管道读走的话，该管道最多能被写入多少字节的数据。自Linux 2.6.11内核起，管道容量的大小默认是65536字节。我们可以使用fcntl函数来修改管道容量.
+
+此外，socket的基础API中有一个socketpair函数。它能够方便地创建双向管道。其定义如下：
+```c
+#include <sys/types.h>
+#include <sys/socket.h>
+int socketpair(int domain, int type, int prorocol, int fd[2]);
+```
+
+socketpair前三个参数的含义与socket系统调用的三个参数完全相同，但domain只能使用UNIX本地域协议族AF_UNIX，因为我们仅能在本地使用这个双向管道。最后一个参数则和pipe系统调用的参数一样，只不过socketpair创建的这对文件描述符都是既可读又可写的。socketpair成功时返回0，失败时返回-1并设置errno。
+
+## 5.2 dup函数和dup2函数
+
+有时我们希望把标准输入重定向到一个文件，或者把标准输出重定向到一个网络连接（比如CGI编程）。这可以通过下面的用于复制文件描述符的dup或dup2函数来实现：
+
+```c
+#include<unistd.h>
+int dup(int file_descriptor);
+int dup2(int file_descriptor_one,int file_descriptor_two);
+```
+
+dup函数创建一个新的文件描述符，该新文件描述符和原有文件描述符file_descriptor指向相同的文件、管道或者网络连接。并且dup返回的文件描述符总是取系统`当前可用的最小整数值`。dup2和dup类似，不过它将返回第一个不小于file_descriptor_two的整数值。dup和dup2系统调用失败时返回-1并设置errno。  
+
+注意 通过dup和dup2创建的文件描述符并不继承原文件描述符的属性，比如close-on-exec和non-blocking等。
+
+`due()`主要用于标准输入/输出重定向，文件共享等。
+比如：
+```
+#include <stdio.h>
+#include <unistd.h>
+#include <fcntl.h>
+
+int main() {
+    int fd = open("test.txt", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd == -1) {
+        perror("open");
+        return 1;
+    }
+
+    int fd_copy = dup(fd);
+    if (fd_copy == -1) {
+        perror("dup");
+        return 1;
+    }
+
+    write(fd, "Hello ", 6);
+    write(fd_copy, "World!", 6);
+
+    close(fd);
+    close(fd_copy);
+    return 0;
+}
+```
+最终test.txt中的内容为“Hello world!”。`fd`和`fd_copy`指向同一个文件，写入数据时不会覆盖，而是追加到同一位置。  
+由于dup总是使用最小整数值，我们可以直接关闭标准输出文件描述符`STDOUT_FILENO`（其值是1），然后复制socket文件描述符connfd，这样一来服务器输出到标准输出的内容就会直接发送到与客户端连接对应的socket上，因此printf调用的输出将被客户端获得（而不是显示在服务器程序的终端上）。这就是CGI服务器的工作原理(Common Gateway Interface 服务器)。  
+简易的CGI服务器：
+```c
+#include<sys/socket.h>
+#include<netinet/in.h>
+#include<arpa/inet.h>
+#include<assert.h>
+#include<stdio.h>
+#include<unistd.h>
+#include<stdlib.h>
+#include<errno.h>
+#include<string.h>
+int main(int argc,char*argv[])
+{
+if(argc<=2)
+{
+printf("usage:%s ip_address port_number\n",basename(argv[0]));
+return 1;
+}
+const char*ip=argv[1];
+int port=atoi(argv[2]);
+struct sockaddr_in address;
+bzero(＆address,sizeof(address));
+address.sin_family=AF_INET;
+inet_pton(AF_INET,ip,＆address.sin_addr);
+address.sin_port=htons(port);
+int sock=socket(PF_INET,SOCK_STREAM,0);
+assert(sock>=0);
+int ret=bind(sock,(struct sockaddr*)＆address,sizeof(address));
+assert(ret!=-1);
+ret=listen(sock,5);
+assert(ret!=-1);
+struct sockaddr_in client;
+socklen_t client_addrlength=sizeof(client);
+int connfd=accept(sock,(struct sockaddr*)＆client,＆client_addrlength);
+if(connfd<0)
+{
+printf("errno is:%d\n",errno);
+}
+else
+{
+close(STDOUT_FILENO);
+dup(connfd);
+printf("abcd\n");
+close(connfd);
+}
+close(sock);
+return 0;
+}
+```
+
+如果要指定新的文件描述符值，可以使用`dup2()`:
+```c
+#include <stdio.h>
+#include <unistd.h>
+#include <fcntl.h>
+
+int main() {
+    int fd = open("output.txt", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd == -1) {
+        perror("open");
+        return 1;
+    }
+
+    dup2(fd, STDOUT_FILENO);  // 重定向 stdout 到 fd
+    close(fd);
+
+    printf("这句话会写入 output.txt\n");
+    return 0;
+}
+
+```
+`dup2(fd, STDOUT_FILENO)` 重定向 `stdout` 到 `fd`，所以 `printf()` 输出到文件而不是终端。
+
+## 5.3 readv函数和writev函数
+readv函数将数据从文件描述符读到分散的内存块中，即分散读；writev函数则将多块分散的内存数据一并写入文件描述符中，即集中写。它们的定义如下：
+```
+#include <sys/uio.h>
+ssize_t readv(int fd,const struct iovec*vector,int count)；
+ssize_t writev(int fd,const struct iovec*vector,int count);
+```
+fd参数是被操作的目标文件描述符。vector参数的类型是iovec结构数组。该结构体描述一块内存区。count参数是vector数组的长度，即有多少块内存数据需要从fd读出或写到fd。readv和writev在成功时返回读出/写入fd的字节数，失败则返回-1并设置errno。它们相当于简化版的recvmsg和sendmsg函数。([4.9.3 通用数据读写函数](#493-通用数据读写函数)).  
+
+当Web服务器解析完一个HTTP请求之后，如果目标文档存在且客户具有读取该文档的权限，那么它就需要发送一个HTTP应答来传输该文档。这个HTTP应答包含1个状态行、多个头部字段、1个空行和文档的内容。其中，前3部分的内容可能被Web服务器放置在一块内存中，而文档的内容则通常被读入到另外一块单独的内存中（通过read函数或mmap函数）。我们并不需要把这两部分内容拼接到一起再发送，而是可以使用writev函数将它们同时写出.
+
+在使用 writev() 进行集中写(scatter-gather I/O)时，接收方（浏览器或 HTTP 客户端）并不会直接知道数据是由多个内存块拼接后发送的，而是会根据 HTTP 协议格式 来解析收到的数据。接收方的解析流程如下：
+
+1. writev() 发送的数据格式
+假设 Web 服务器使用 writev() 发送 HTTP 响应，其中：  
+    - 状态行、头部字段、空行 放在 第一块内存（块1）。
+    - HTML/文件内容 放在 第二块内存（块2）。  
+示例：
+```c
+struct iovec iov[2];
+iov[0].iov_base = "HTTP/1.1 200 OK\r\nContent-Length: 14\r\n\r\n";
+iov[0].iov_len  = 34;
+iov[1].iov_base = "Hello, World!\n";
+iov[1].iov_len  = 14;
+writev(socket_fd, iov, 2);
+```
+
+最终发送的 TCP 数据
+```css
+HTTP/1.1 200 OK\r\n
+Content-Length: 14\r\n
+\r\n
+Hello, World!\n
+```
+
+2. 接收方如何解析数据
+即使 writev() 发送的是分散的多个数据块，接收方接收到的是 一个完整的 TCP 流，HTTP 解析器会按以下方式解析：
+
+(1) 解析状态行
+读取第一行：
+```
+HTTP/1.1 200 OK\r\n
+```
+识别 `HTTP/1.1` 版本，`200 OK` 状态码。
+
+(2) 解析 HTTP 头部  
+继续按行读取：
+```css
+Content-Length: 14\r\n
+```
+识别 `Content-Length` 头，得知正文长度为 14 字节。
+
+(3) 识别空行
+遇到：
+```
+\r\n
+```
+空行表示头部结束，正文开始。
+
+(4) 解析正文
+根据 Content-Length: 14，接收接下来的 14 字节：
+```
+Hello, World!\n
+```
+关键点：TCP 是流式协议，数据块无边界  
+TCP 不关心 writev() 是否使用多个缓冲区，它只会保证字节流的顺序不变。  
+HTTP 协议解析器 依赖 换行符（\r\n）和 Content-Length 来拆分数据，而不是 TCP 数据块的边界。  
+浏览器（或 HTTP 客户端）按照 HTTP 头格式 解析数据后，会提取正文并显示。
+
+## 5.4 sendfile函数
+
+sendfile函数在两个文件描述符之间直接传递数据（完全在内核中操作），从而避免了内核缓冲区和用户缓冲区之间的数据拷贝，效率很高，这被称为零拷贝。sendfile函数的定义如下：
+
+```c
+#include<sys/sendfile.h>
+ssize_t sendfile(int out_fd,int in_fd,off_t*offset,size_t count);
+```
+
+in_fd参数是待读出内容的文件描述符，out_fd参数是待写入内容的文件描述符。offset参数指定从读入文件流的哪个位置开始读，如果为空，则使用读入文件流默认的起始位置。count参数指定在文件描述符in_fd和out_fd之间传输的字节数。sendfile成功时返回传输的字节数，失败则返回-1并设置errno。  
+该函数的man手册明确指出，`in_fd必须是一个支持类似mmap函数的文件描述符，即它必须指向真实的文件，不能是socket和管道；而out_fd则必须是一个socket。`
+
+## 5.5 mmap函数和munmap函数
+
+mmap函数用于申请一段内存空间。我们可以将这段内存作为进程间通信的共享内存，也可以将文件直接映射到其中。munmap函数则释放由mmap创建的这段内存空间。它们的定义如下：
+```c
+#include<sys/mman.h>
+void*mmap(void*start,size_t length,int prot,int flags,int fd,off_t offset);
+int munmap(void*start,size_t length);
+```
+start参数允许用户使用某个特定的地址作为这段内存的起始地址。如果它被设置成NULL，则系统自动分配一个地址。length参数指定内存段的长度。prot参数用来设置内存段的访问权限。它可以取以下几个值的按位或：  
+- PROT_READ，内存段可读。
+- PROT_WRITE，内存段可写。
+- PROT_EXEC，内存段可执行。
+- PROT_NONE，内存段不能被访问。
+
+flags参数控制内存段内容被修改后程序的行为。它可以被设置为表6-1中的某些值（这里仅列出了常用的值）的按位或（其中MAP_SHARED和MAP_PRIVATE是互斥的，不能同时指定）。
+
+<img src="./picture/6.5.1.png" width="700"> 
+
+fd参数是被映射文件对应的文件描述符。它一般通过open系统调用获得。offset参数设置从文件的何处开始映射（对于不需要读入整个文件的情况）。
+
+mmap函数成功时返回指向目标内存区域的指针，失败则返回MAP_FAILED（(void*)-1）并设置errno。munmap函数成功时返回0，失败则返回-1并设置errno。
+
+## 5.6 splice函数
+
+## 5.7 tree函数
+
+## 5.8 fcntl函数
+
+# 6. Linux服务器程序规范
+
+# 9. IO复用
+
+I/O复用使得程序能同时监听多个文件描述符，这对提高程序的性能至关重要。通常，网络程序在下列情况下需要使用I/O复用技术：
+
+- 客户端要同时处理多个socket。
+- 客户端要同时处理用户输入和网络连接。
+- TCP服务器要同时处理监听socket和连接socket。
+- 服务器要同时处理TCP请求和UDP请求。
+- 服务器要同时监听多个端口。
+
+需要指出的是，I/O复用虽然能同时监听多个文件描述符，但它本身是阻塞的。并且当多个文件描述符同时就绪时，如果不采取额外的措施，程序就只能按顺序依次处理其中的每一个文件描述符，这使得服务器程序看起来像是串行工作的。如果要实现并发，只能使用多进程或多线程等编程手段。
+
+## 9.1 select系统调用
+
+select系统调用的用途是：在一段指定时间内，监听用户感兴趣的文件描述符上的可读、可写和异常等事件。
+
+### 9.1.1 select API
+```c
+#include<sys/select.h>
+int select(int nfds, fd_set* readfds, fd_set* writefds, fd_set* exceptfds, struct timeval* timeout);
+```
+1. `nfds`参数指定被监听的文件描述符的总数。它通常被设置为select监听的所有文件描述符中的最大值加1，因为文件描述符是从0开始计数的。
+2. `readfds`、`writefds`和`exceptfds`参数分别指向可读、可写和异常等事件对应的文件描述符集合。应用程序调用select函数时，通过这3个参数传入自己感兴趣的文件描述符。select调用返回时，内核将修改它们来通知应用程序哪些文件描述符已经就绪。这3个参数是fd_set结构指针类型。fd_set结构体的定义如下：
+```c
+#include<typesizes.h>
+#define __FD_SETSIZE 1024
+#include<sys/select.h>
+#define FD_SETSIZE__FD_SETSIZE
+typedef long int__fd_mask;
+#undef __NFDBITS
+#define __NFDBITS(8*(int)sizeof(__fd_mask))
+typedef struct
+{
+#ifdef __USE_XOPEN
+__fd_mask fds_bits[__FD_SETSIZE/__NFDBITS];
+#define __FDS_BITS(set)((set)-＞fds_bits)
+#else
+__fd_mask__fds_bits[__FD_SETSIZE/__NFDBITS];
+#define __FDS_BITS(set)((set)-＞__fds_bits)
+#endif
+}fd_set;
+```
+
+`fd_set` 是一个 位掩码（bitmask），用于存储多个文件描述符的状态。在 select() 调用时，可以监视多个 socket 的 读、写和异常 事件。
+
+由以上定义可见，fd_set结构体仅包含一个整型数组，该数组的每个元素的每一位（bit）标记一个文件描述符。fd_set能容纳的文件描述符数量由FD_SETSIZE指定，这就限制了select能同时处理的文件描述符的总量。
+
+由于位操作过于烦琐，我们应该使用下面的一系列宏来访问fd_set结构体中的位：
+
+```c
+FD_ZERO(fd_set*fdset);/*清除fdset的所有位*/
+FD_SET(int fd,fd_set*fdset);/*设置fdset的位fd*/
+FD_CLR(int fd,fd_set*fdset);/*清除fdset的位fd*/
+int FD_ISSET(int fd,fd_set*fdset);/*测试fdset的位fd是否就绪（可读，可写，异常）（返回非零值）*/
+```
+
+3. timeout参数用来设置select函数的超时时间。它是一个timeval结构类型的指针，采用指针参数是因为内核将修改它以告诉应用程序select等待了多久。不过我们不能完全信任select调用返回后的timeout值，比如调用失败时timeout值是不确定的。timeval结构体的定义如下：
+```c
+struct timeval
+{
+long tv_sec;/*秒数*/
+long tv_usec;/*微秒数*/
+};
+```
+
+由以上定义可见，select给我们提供了一个微秒级的定时方式。如果给timeout变量的tv_sec成员和tv_usec成员都传递0，则select将立即返回。如果给timeout传递NULL，则select将一直阻塞，直到某个文件描述符就绪。
+
+select成功时返回就绪（可读、可写和异常）文件描述符的总数。如果在超时时间内没有任何文件描述符就绪，select将返回0。select失败时返回-1并设置errno。如果在select等待期间，程序接收到信号，则select立即返回-1，并设置errno为EINTR。
+
+### 9.1.2 文件描述符就绪条件
+
+哪些情况下文件描述符可以被认为是可读、可写或者出现异常，对于select的使用非常关键。 
+
+低水位标记（如`SO_RCVLOWAT`和`SO_SNDLOWAT`）表示需要至少这个位数的数据才会执行操作，否则阻塞。
+
+在网络编程中，下列情况下socket可读（不会被阻塞）：
+- socket内核接收缓存区中的字节数大于或等于其低水位标记SO_RCVLOWAT。此时我们可以无阻塞地读该socket，并且读操作返回的字节数大于0。
+- 监听socket上有新请求。
+- socket上有未处理的错误。此时我们可以使用getsockopt来读取和清除该错误。
+
+下列情况下socket可写：
+- socket内核发送缓存区中的**可用字节数**大于或等于其低水位标记SO_SNDLOWAT。此时我们可以无阻塞地写该socket，并且写操作返回的字节数大于0。
+- socket的写操作被关闭。对写操作被关闭的socket执行写操作将触发一个SIGPIPE信号。
+- socket使用非阻塞connect连接成功或者失败（超时）之后。
+- socket上有未处理的错误。此时我们可以使用getsockopt来读取和清除该错误。
+
+网络程序中，select能处理的异常情况只有一种：socket上接收到带外数据。
+
+### 9.1.3 处理带外数据
+
+socket上接收到普通数据和带外数据都将使select返回，但socket处于不同的就绪状态：前者处于可读状态，后者处于异常状态。
+
+# 9.2 poll系统调用
+poll系统调用和select类似，也是在指定时间内轮询一定数量的文件描述符，以测试其中是否有就绪者。poll的原型如下：
+
+```c
+#include<poll.h>
+int poll(struct pollfd* fds, nfds_t nfds, int timeout);
+```
+1. `fds`参数是一个`pollfd`结构数组，它指定所有我们感兴趣的文件描述符上发生的可读、可写和异常等事件。pollfd结构体的定义如下：
+```c
+struct pollfd
+{
+int fd;/*文件描述符*/
+short events;/*注册的事件*/
+short revents;/*实际发生的事件，由内核填充*/
+};
+```
+其中，fd成员指定文件描述符；events成员告诉poll监听fd上的哪些事件，它是一系列事件的按位或；revents成员则由内核修改，以通知应用程序fd上实际发生了哪些事件。poll支持的事件类型如表9-1所示。  
+<img src="./picture/9.2.1.png" width="700">   
+通常，应用程序需要根据recv调用的返回值来区分socket上接收到的是有效数据还是对方关闭连接的请求，并做相应的处理。不过，自Linux内核2.6.17开始，GNU为poll系统调用增加了一个POLLRDHUP事件，它在socket上接收到对方关闭连接的请求之后触发。这为我们区分上述两种情况提供了一种更简单的方式。但使用POLLRDHUP事件时，我们需要在代码最开始处定义_GNU_SOURCE。
+
+2. `nfds`参数指定被监听事件集合fds的大小。其类型nfds_t的定义如下：
+```c
+typedef unsigned long int nfds_t;
+```
+
+3. `timeout`参数指定poll的超时值，单位是毫秒。当timeout为-1时，poll调用将永远阻塞，直到某个事件发生；当timeout为0时，poll调用将立即返回。
+
+poll返回值和select的返回值含义相同。
+
+通过遍历`fds`数组，通过`revents`字段来查看哪些`socket`有事件发生。通过`fds[i].revents & polll事件类型`来检测，例如：
+```c
+// **(1) 检查 server_fd 是否有新连接**
+if (fds[0].revents & POLLIN) {
+    ...
+}
+```
+
+## 9.3 epoll系列系统调用
+
+### 9.3.1 内核事件表, epoll_create, epoll_ctl
+epoll是Linux特有的I/O复用函数。它在实现和使用上与select、poll有很大差异。首先，epoll使用一组函数来完成任务，而不是单个函数。其次，epoll把用户关心的文件描述符上的事件放在内核里的一个事件表中，从而无须像select和poll那样每次调用都要重复传入文件描述符集或事件集。但epoll需要使用一个额外的文件描述符，来唯一标识内核中的这个事件表。这个文件描述符使用如下epoll_create函数来创建：
+```c
+#include<sys/epoll.h>
+int epoll_create(int size);
+```
+size参数现在并不起作用，只是给内核一个提示，告诉它事件表需要多大。该函数返回的文件描述符将用作其他所有epoll系统调用的第一个参数，以指定要访问的内核事件表。
+
+下面函数用来操作epoll的内核事件表：
+```c
+#include<sys/epoll.h>
+int epoll_ctl(int epfd,int op,int fd,struct epoll_event*event)
+```
+`epfd`是epoll_create创建的事件表的文件描述符，`fd`参数是要操作的文件描述符，`op`参数则指定操作类型。操作类型有下面三种：
+- EPOLL_CTR_ADD，往事件表中注册fd上的事件。
+- EPOLL_CTR_MOD，修改fd上的注册事件。
+- EPOLL_CTR_DEL，删除fd上的注册事件。
+
+`even`参数指定事件，它是epoll_event结构指针类型。epoll_event的定义如下：
+```c
+struct epoll_event
+{
+__uint32_t events;/*epoll事件*/
+epoll_data_t data;/*用户数据*/
+};
+```
+其中events成员描述事件类型。epoll支持的事件类型和poll基本相同。表示epoll事件类型的宏是在poll对应的宏前加上“E”，比如epoll的数据可读事件是EPOLLIN。但epoll有两个额外的事件类型——EPOLLET和EPOLLONESHOT。它们对于epoll的高效运作非常关键，我们将在后面讨论它们。data成员用于存储用户数据，其类型epoll_data_t的定义如下：
+```c
+typedef union epoll_data
+{
+void*ptr;
+int fd;
+uint32_t u32;
+uint64_t u64;
+}epoll_data_t;
+```
+epoll_data_t是一个联合体，其4个成员中使用最多的是fd，它指定事件所从属的目标文件描述符。ptr成员可用来指定与fd相关的用户数据。但由于epoll_data_t是一个联合体，我们不能同时使用其ptr成员和fd成员，因此，如果要将文件描述符和用户数据关联起来（正如8.5.2小节讨论的将句柄和事件处理器绑定一样），以实现快速的数据访问，只能使用其他手段，比如放弃使用epoll_data_t的fd成员，而在ptr指向的用户数据中包含fd。  
+
+epoll_ctl成功时返回0，失败则返回-1并设置errno。
+
+### 9.3.2 epoll_wait函数
+epoll系列系统调用的主要接口是epoll_wait函数。它在一段超时时间内等待一组文件描述符上的事件，其原型如下：
+```c
+#include<sys/epoll.h>
+int epoll_wait(int epfd,struct epoll_event* events,int maxevents,int timeout);
+```
+该函数成功时返回就绪的文件描述符的个数，失败时返回-1并设置errno。
+
+timeout参数的含义与poll接口的timeout参数相同。maxevents参数指定最多监听多少个事件，它必须大于0。
+
+epoll_wait函数如果检测到事件，就将所有就绪的事件从内核事件表（由epfd参数指定）中复制到它的第二个参数events指向的数组中。这个数组只用于输出epoll_wait检测到的就绪事件，而不像select和poll的数组参数那样既用于传入用户注册的事件，又用于输出内核检测到的就绪事件。这就极大地提高了应用程序索引就绪文件描述符的效率。
+
+### 9.3.3 LT和ET模式
+epoll对文件描述符的操作有两种模式：LT（Level Trigger，电平触发）模式和ET（Edge Trigger，边沿触发）模式。LT模式是默认的工作模式，这种模式下epoll相当于一个效率较高的poll。当往epoll内核事件表中注册一个文件描述符上的EPOLLET事件时，epoll将以ET模式来操作该文件描述符。ET模式是epoll的高效工作模式。
+
+对于采用LT工作模式的文件描述符，当epoll_wait检测到其上有事件发生并将此事件通知应用程序后，应用程序可以不立即处理该事件。这样，当应用程序下一次调用epoll_wait时，epoll_wait还会再次向应用程序通告此事件，直到该事件被处理。而对于采用ET工作模式的文件描述符，当epoll_wait检测到其上有事件发生并将此事件通知应用程序后，应用程序必须立即处理该事件，因为后续的epoll_wait调用将不再向应用程序通知这一事件。可见，ET模式在很大程度上降低了同一个epoll事件被重复触发的次数，因此效率要比LT模式高。  
+
+设置ET模式或LT模式就是和事件(`epoll_event`结构体中的`events`, `event.events`)进行按位或(`|=`)操作。
+
+**注意** 每个使用ET模式的文件描述符都应该是非阻塞的。如果文件描述符是阻塞的，那么读或写操作将会因为没有后续的事件而一直处于阻塞状态（饥渴状态）。
+
+# 13. 多进程编程
+
+在Linux操作系统中，`内核进程表（Process Table）` 主要用于管理系统中的所有进程。它存储了每个进程的关键信息，使得操作系统能够进行进程调度、管理资源、维护进程状态等。
+
+1. 进程表的结构
+Linux内核使用 `进程控制块（Process Control Block，PCB）` 来存储每个进程的信息。在Linux中，`PCB 是一个 task_struct 结构体`，它被组织在一个全局的进程表（任务列表）中。
+
+`task_struct`结构体：  
+`task_struct` 是Linux内核中用来表示进程的核心数据结构，它的定义在 include/linux/sched.h 头文件中。以下是其部分关键字段：
+```c
+struct task_struct {
+    pid_t pid;                      // 进程ID
+    pid_t tgid;                     // 线程组ID（多线程共享）
+    volatile long state;             // 进程状态
+    struct list_head tasks;          // 进程链表指针
+    struct mm_struct *mm;            // 进程地址空间信息
+    struct thread_info *thread;      // 线程相关信息
+    struct list_head children;       // 子进程链表
+    struct list_head sibling;        // 兄弟进程链表
+    struct files_struct *files;      // 进程打开的文件信息
+    struct signal_struct *signal;    // 信号处理信息
+    struct sched_entity se;          // 进程调度信息
+    ...
+};
+```
+
+2. 内核如何管理进程表
+Linux内核使用 双向循环链表 (`task_struct` 里的 `tasks` 字段) 组织所有进程。所有的 `task_struct` 通过 `list_head` 结构体连接，形成进程链表。  
+- `init_task`是第一个进程（即`init`进程，PID=1），它是所有进程的祖先。
+- `current`宏用于获取当前进程的`task_struct`。
+
+2.1. 进程的创建  
+当创建新进程时（如 `fork()` 或 `clone()`），内核会：
+1. 分配新的 task_struct 结构。
+2. 复制父进程的相关数据（如文件描述符、地址空间等）。
+3. 插入到全局进程链表中。
+
+
+
+## 13.1 fork系统调用
+
+```c
+#include<sys/types.h>
+#include<unistd.h>
+pid_t fork(void);
+```
+
+该函数的每次调用都返回两次，`在父进程中返回的是子进程的PID，在子进程中则返回0`。该返回值是后续代码判断当前进程是父进程还是子进程的依据。fork调用失败时返回-1，并设置errno。
+
+fork函数复制当前进程，在内核进程表中创建一个新的进程表项。新的进程表项有很多属性和原进程相同，比如堆指针、栈指针和标志寄存器的值。但也有许多属性被赋予了新的值，比如该进程的PPID被设置成原进程的PID，信号位图被清除（原进程设置的信号处理函数不再对新进程起作用）。
+
+`fork()`复制了父进程的代码和数据：  
+当一个进程调用`fork()`时：  
+- 代码段：子进程的代码和父进程完全相同
+- 数据段：堆(heap)，栈(stack)，静态数据等都会被复制。  
+但这里说的“复制”并不是立即真正复制，而是通过COW机制进行优化。  
+
+写时复制（Copy-On-Write, COW）机制：  
+父子进程最初共享相同的内存页（只读），只有当其中一个进程尝试写入该内存时，才会真正复制该内存所在的内存页。  
+假设`fork()`后，父子进程共享内存页，当子进程或父进程尝试修改内容时：
+1. 子进程或父进程尝试写入 x。
+2. 触发缺页异常（Page Fault）。
+3. 内核分配新的物理内存页。
+4. 将原内存页的数据复制到新页。
+5. 修改进程的页表，使其指向新分配的页。
+6. 写入新数据，修改才会生效。
+
+创建子进程后，父进程中打开的文件描述符默认在子进程中也是打开的，且文件描述符的引用计数加1。不仅如此，父进程的用户根目录、当前工作目录等变量的引用计数均会加1。
+
+## 13.2 exec系列系统调用
+
+有时我们需要在子进程中执行其他程序，即替换当前进程映像，这就需要使用如下exec系列函数之一：
+```c
+#include<unistd.h>
+int execl(const char*path,const char*arg,...);
+int execlp(const char*file,const char*arg,...);
+int execle(const char*path,const char*arg,...,char*const envp[]);
+int execv(const char*path,char*const argv[]);
+int execvp(const char*file,char*const argv[]);
+int execve(const char*path,char*const argv[],char*const envp[]);
+```
+
+path参数指定可执行文件的完整路径，file参数可以接受文件名，该文件的具体位置则在环境变量PATH中搜寻。arg接受可变参数，argv则接受参数数组，它们都会被传递给新程序（path或file指定的程序）的main函数。envp参数用于设置新程序的环境变量。如果未设置它，则新程序将使用由全局变量environ指定的环境变量。
+
+一般情况下，exec函数是不返回的，除非出错。它出错时返回-1，并设置errno。如果没出错，则原程序中exec调用之后的代码都不会执行，因为此时原程序已经被exec的参数指定的程序完全替换（包括代码和数据）。
+
+exec函数不会关闭原程序打开的文件描述符，除非该文件描述符被设置了类似SOCK_CLOEXEC的属性.
+
+## 13.3 处理僵尸进程
+
+对于多进程程序而言，父进程一般需要跟踪子进程的退出状态。因此，当子进程结束运行时，内核不会立即释放该进程的进程表表项，以满足父进程后续对该子进程退出信息的查询（如果父进程还在运行）。在子进程结束运行之后，父进程读取其退出状态之前，我们称该子进程处于僵尸态。另外一种使子进程进入僵尸态的情况是：父进程结束或者异常终止，而子进程继续运行。此时子进程的PPID将被操作系统设置为1，即init进程。init进程接管了该子进程，并等待它结束。在父进程退出之后，子进程退出之前，该子进程处于僵尸态。
+
+下面这对函数在父进程中调用，以等待子进程的结束，并获取子进程的返回信息，从而避免了僵尸进程的产生，或者使子进程的僵尸态立即结束：
+```c
+#include<sys/types.h>
+#include<sys/wait.h>
+pid_t wait(int*stat_loc);
+pid_t waitpid(pid_t pid,int*stat_loc,int options);
+```
+
+wait函数将阻塞进程，直到该进程的某个子进程结束运行为止。它返回结束运行的子进程的PID，并将该子进程的退出状态信息存储于stat_loc参数指向的内存中。sys/wait.h头文件中定义了几个宏来帮助解释子进程的退出状态信息，如表13-1所示。
+
+<img src="./picture/13.3.1.png" width="700"> 
+
+wait函数的阻塞特性显然不是服务器程序期望的，而waitpid函数解决了这个问题。waitpid只等待由pid参数指定的子进程。如果pid取值为-1，那么它就和wait函数相同，即等待任意一个子进程结束。stat_loc参数的含义和wait函数的stat_loc参数相同。options参数可以控制waitpid函数的行为。该参数最常用的取值是WNOHANG。当options的取值是WNOHANG时，waitpid调用将是非阻塞的：如果pid指定的目标子进程还没有结束或意外终止，则waitpid立即返回0；如果目标子进程确实正常退出了，则waitpid返回该子进程的PID。waitpid调用失败时返回-1并设置errno。
+
+## 13.4 管道
+在[5.1 pipe函数](#51-pipe函数)中我们介绍过创建管道的系统调用`pipe`。实际上，管道也是父进程和子进程
+间通信的常用手段。  
+
+管道能在父、子进程间传递数据，利用的是fork调用之后两个管道文件描述符（fd[0]和fd[1]）都保持打开。一对这样的文件描述符只能保证父、子进程间一个方向的数据传输，父进程和子进程必须有一个关闭fd[0]，另一个关闭fd[1]。  
+例如：  
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+
+int main() {
+    int fd[2]; // 文件描述符数组
+    char buffer[100];
+    pid_t pid;
+
+    // 创建管道
+    if (pipe(fd) == -1) {
+        perror("pipe failed");
+        exit(1);
+    }
+
+    pid = fork(); // 创建子进程
+
+    if (pid < 0) {
+        perror("fork failed");
+        exit(1);
+    }
+
+    if (pid == 0) {  // 子进程
+        close(fd[1]); // 关闭写端
+        read(fd[0], buffer, sizeof(buffer)); // 从管道读取数据
+        printf("子进程收到消息: %s\n", buffer);
+        close(fd[0]); // 关闭读端
+    } else {  // 父进程
+        close(fd[0]); // 关闭读端
+        char msg[] = "Hello from parent!";
+        write(fd[1], msg, strlen(msg) + 1); // 向管道写入数据
+        close(fd[1]); // 关闭写端
+    }
+
+    return 0;
+}
+```
+
+如果我们想要实现双向数据传输就应该使用`socketpair`函数来实现。
+
+## 13.5 信号量
+
+### 13.5.1 信号量原语
+
+当多个进程同时访问系统上的某个资源的时候，比如同时写一个数据库的某条记录，或者同时修改某个文件，就需要考虑进程的同步问题，以确保任一时刻只有一个进程可以拥有对资源的独占式访问。通常，程序对共享资源的访问的代码只是很短的一段，但就是这一段代码引发了进程之间的竞态条件。我们称这段代码为关键代码段，或者临界区。对进程同步，也就是确保任一时刻只有一个进程能进入关键代码段。
+
+信号量是一种特殊的变量，它只能取自然数值并且只支持两种操作：等待（wait）和信号（signal）。不过在Linux/UNIX中，“等待”和“信号”都已经具有特殊的含义，所以对信号量的这两种操作更常用的称呼是P、V操作。这两个字母来自于荷兰语单词passeren（传递，就好像进入临界区）和vrijgeven（释放，就好像退出临界区）。假设有信号量SV，则对它的P、V操作含义如下：
+
+- P(SV)，如果SV的值大于0，就将它减1；如果SV的值为0，则挂起进程的执行。
+- V(SV)，如果有其他进程因为等待SV而挂起，则唤醒之；如果没有，则将SV加1。
+
+信号量的取值可以是任何自然数。但最常用的、最简单的信号量是二进制信号量，它只能取0和1这两个值。
+
+**注意:** 使用一个普通变量来模拟二进制信号量是行不通的，因为所有高级语言都没有一个原子操作可以同时完成如下两步操作：检测变量是否为true/false，如果是则再将它设置为false/true。
+
+Linux信号量的API都定义在sys/sem.h头文件中，主要包含3个系统调用：semget、semop和semctl。它们都被设计为操作一组信号量，即信号量集，而不是单个信号量.
+
+### 13.5.2 `semget`系统调用
+
+semget系统调用创建一个新的信号量集，或者获取一个已经存在的信号量集。其定义如下：
+
+
+# 14. 多线程编程
+
+## 14.1 创建线程和结束线程
+
+### 14.1.1 `pthread_create`
+
+```c
+#include<pthread.h>
+int pthread_create(pthread_t* thread, const pthread_attr_t* attr, void*(*start_routine)(void*), void* arg);
+```
+`thread`参数是新线程的标识符，后续pthread_*函数通过它来引用新线程。
+```c
+#include<bits/pthreadtypes.h>
+typedef unsigned long int pthread_t;
+```
+
+attr参数用于设置新线程的属性。给它传递NULL表示使用默认线程属性。线程拥有众多属性，我们将在后面详细讨论之。start_routine和arg参数分别指定新线程将运行的函数及其参数。
+
+pthread_create成功时返回0，失败时返回错误码。
+
+### 14.1.2 `pthread_exit`
+
+线程一旦被创建好，内核就可以调度内核线程来执行start_routine函数指针所指向的函数了。线程函数在结束时最好调用如下函数，以确保安全、干净地退出：
+```c
+#include<pthread.h>
+void pthread_exit(void* retval);
+```
+pthread_exit函数通过retval参数向线程的回收者传递其退出信息。它执行完之后不会返回到调用者，而且永远不会失败。
+
+### 14.1.3 `pthread_join`
+一个进程中的所有线程都可以调用pthread_join函数来回收其他线程（前提是目标线程是可回收的，见后文），即等待其他线程结束，这类似于回收进程的wait和waitpid系统调用。pthread_join的定义如下：
+```c
+#include<pthread.h>
+int pthread_join(pthread_t thread, void**retval);
+```
+thread参数是目标线程的标识符，retval参数则是目标线程返回的退出信息。该函数会一直阻塞，直到被回收的线程结束为止。该函数成功时返回0，失败则返回错误码。  
+|错误码|描述|
+|----------|------------|
+|EDEADLK|可能引起死锁。比如两个线程互相针对对方调用`pthread_join`，或者线程对自身调用`pthread_join`|
+|EINVAL|目标线程是不可回收的，或者已经有其他线程在回收该目标线程|
+|ESRCH|目标线程不存在|
+
+### 14.1.4 `pthread_detach`
+
+pthread_detach 的主要作用是：
+
+1. 让线程的资源在终止时自动释放，而无需调用 pthread_join 进行显式回收。
+2. 防止线程变成僵尸线程，避免资源泄露。
+3. 适用于不需要同步等待的线程，比如后台任务、日志写入等。
+
+```c
+#include<pthread.h>
+int pthread_detach(pthread_t thread);
+```
+
+- thread：需要分离的线程 ID。
+- 返回值：
+    - 成功：返回 0。
+    - 失败：返回错误码，如 ESRCH（线程不存在）或 EINVAL（线程已经是分离状态）。
+
+### 14.1.5 `pthread_cancel`
+有时候我们希望异常终止一个线程，即取消线程，它是通过如下函数实现的：
+```c
+#include<pthread.h>
+int pthread_cancel(pthread_t thread);
+```
+thread参数是目标线程的标识符。该函数成功时返回0，失败则返回错误码。不过，接收到取消请求的目标线程可以决定是否允许被取消以及如何取消，这分别由如下两个函数完成:
+```c
+int pthread_setcancelstate(int state,int* oldstate);
+int pthread_setcanceltype(int type,int* oldtype);
+```
+
+这两个函数的第一个参数分别用于设置线程的取消状态（是否允许取消）和取消类型（如何取消），第二个参数则分别记录线程原来的取消状态和取消类型。state参数有两个可选值：
+- PTHREAD_CANCEL_ENABLE，允许线程被取消。它是线程被创建时的默认取消状态。
+- PTHREAD_CANCEL_DISABLE，禁止线程被取消。这种情况下，如果一个线程收到取消请求，则它会将请求挂起，直到该线程允许被取消。
+
+type参数也有两个可选值：
+- PTHREAD_CANCEL_ASYNCHRONOUS，线程随时都可以被取消。它将使得接收到取消请求的目标线程立即采取行动。
+- PTHREAD_CANCEL_DEFERRED，允许目标线程推迟行动，直到它调用了下面几个所谓的取消点函数中的一个：pthread_join、pthread_testcancel、pthread_cond_wait、pthread_cond_timedwait、sem_wait和sigwait。根据POSIX标准，其他可能阻塞的系统调用，比如read、wait，也可以成为取消点。不过为了安全起见，我们最好在可能会被取消的代码中调用pthread_testcancel函数以设置取消点。  
+
+pthread_setcancelstate和pthread_setcanceltype成功时返回0，失败则返回错误码。
+
+## 14.2 线程属性
+
+## 14.3 POSIX信号量
+pthread_join可以看作一种简单的线程同步方式，不过很显然，它无法高效地实现复杂的同步需求，比如控制对共享资源的独占式访问，又抑或是在某个条件满足之后唤醒一个线程。接下来我们讨论3种专门用于线程同步的机制：POSIX信号量、互斥量和条件变量。
