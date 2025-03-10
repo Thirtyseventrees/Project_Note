@@ -94,10 +94,10 @@
     - [9.1.2 文件描述符就绪条件](#912-文件描述符就绪条件)
     - [9.1.3 处理带外数据](#913-处理带外数据)
 - [9.2 poll系统调用](#92-poll系统调用)
-  - [9.3 epoll系列系统调用](#93-epoll系列系统调用)
-    - [9.3.1 内核事件表, epoll\_create, epoll\_ctl](#931-内核事件表-epoll_create-epoll_ctl)
+- [9.3 epoll系列系统调用](#93-epoll系列系统调用)
+  - [9.3.1 内核事件表, epoll\_create, epoll\_ctl](#931-内核事件表-epoll_create-epoll_ctl)
     - [9.3.2 epoll\_wait函数](#932-epoll_wait函数)
-    - [9.3.3 LT和ET模式](#933-lt和et模式)
+  - [9.3.3 LT和ET模式](#933-lt和et模式)
 - [13. 多进程编程](#13-多进程编程)
   - [13.1 fork系统调用](#131-fork系统调用)
   - [13.2 exec系列系统调用](#132-exec系列系统调用)
@@ -115,6 +115,7 @@
     - [14.1.5 `pthread_cancel`](#1415-pthread_cancel)
   - [14.2 线程属性](#142-线程属性)
   - [14.3 POSIX信号量](#143-posix信号量)
+- [Http报文](#http报文)
 
 # 计网基础
 
@@ -1807,9 +1808,9 @@ if (fds[0].revents & POLLIN) {
 }
 ```
 
-## 9.3 epoll系列系统调用
+# 9.3 epoll系列系统调用
 
-### 9.3.1 内核事件表, epoll_create, epoll_ctl
+## 9.3.1 内核事件表, epoll_create, epoll_ctl
 epoll是Linux特有的I/O复用函数。它在实现和使用上与select、poll有很大差异。首先，epoll使用一组函数来完成任务，而不是单个函数。其次，epoll把用户关心的文件描述符上的事件放在内核里的一个事件表中，从而无须像select和poll那样每次调用都要重复传入文件描述符集或事件集。但epoll需要使用一个额外的文件描述符，来唯一标识内核中的这个事件表。这个文件描述符使用如下epoll_create函数来创建：
 ```c
 #include<sys/epoll.h>
@@ -1861,7 +1862,7 @@ timeout参数的含义与poll接口的timeout参数相同。maxevents参数指�
 
 epoll_wait函数如果检测到事件，就将所有就绪的事件从内核事件表（由epfd参数指定）中复制到它的第二个参数events指向的数组中。这个数组只用于输出epoll_wait检测到的就绪事件，而不像select和poll的数组参数那样既用于传入用户注册的事件，又用于输出内核检测到的就绪事件。这就极大地提高了应用程序索引就绪文件描述符的效率。
 
-### 9.3.3 LT和ET模式
+## 9.3.3 LT和ET模式
 epoll对文件描述符的操作有两种模式：LT（Level Trigger，电平触发）模式和ET（Edge Trigger，边沿触发）模式。LT模式是默认的工作模式，这种模式下epoll相当于一个效率较高的poll。当往epoll内核事件表中注册一个文件描述符上的EPOLLET事件时，epoll将以ET模式来操作该文件描述符。ET模式是epoll的高效工作模式。
 
 对于采用LT工作模式的文件描述符，当epoll_wait检测到其上有事件发生并将此事件通知应用程序后，应用程序可以不立即处理该事件。这样，当应用程序下一次调用epoll_wait时，epoll_wait还会再次向应用程序通告此事件，直到该事件被处理。而对于采用ET工作模式的文件描述符，当epoll_wait检测到其上有事件发生并将此事件通知应用程序后，应用程序必须立即处理该事件，因为后续的epoll_wait调用将不再向应用程序通知这一事件。可见，ET模式在很大程度上降低了同一个epoll事件被重复触发的次数，因此效率要比LT模式高。  
@@ -2132,3 +2133,31 @@ pthread_setcancelstate和pthread_setcanceltype成功时返回0，失败则返回
 
 ## 14.3 POSIX信号量
 pthread_join可以看作一种简单的线程同步方式，不过很显然，它无法高效地实现复杂的同步需求，比如控制对共享资源的独占式访问，又抑或是在某个条件满足之后唤醒一个线程。接下来我们讨论3种专门用于线程同步的机制：POSIX信号量、互斥量和条件变量。
+
+# Http报文
+```
+GET / HTTP/1.1
+Host: 172.23.197.6:12345
+Connection: keep-alive
+Upgrade-Insecure-Requests: 1
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
+Accept-Encoding: gzip, deflate
+Accept-Language: en-GB,en;q=0.9,zh-CN;q=0.8,zh;q=0.7,en-US;q=0.6
+
+
+GET /favicon.ico HTTP/1.1
+Host: 172.23.197.6:12345
+Connection: keep-alive
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36
+Accept: image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8
+Referer: http://172.23.197.6:12345/
+Accept-Encoding: gzip, deflate
+Accept-Language: en-GB,en;q=0.9,zh-CN;q=0.8,zh;q=0.7,en-US;q=0.6
+
+
+"HTTP/1.1 200 OK\r\n"
+"Content-Type: text/html\r\n"
+"Content-Length: " + std::to_string(content_length) + "\r\n"
+"\r\n" + std::string(html_content);
+```
