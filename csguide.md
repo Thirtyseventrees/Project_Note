@@ -1,0 +1,1315 @@
+- [OOP三大特性](#oop三大特性)
+- [C++编译过程](#c编译过程)
+  - [编译单元](#编译单元)
+- [目标文件的格式（Linux中的ELF）文件](#目标文件的格式linux中的elf文件)
+  - [目标文件是什么样的](#目标文件是什么样的)
+  - [链接的接口——符号](#链接的接口符号)
+- [静态链接](#静态链接)
+  - [空间与地址分配](#空间与地址分配)
+- [C++内存分区](#c内存分区)
+  - [栈帧](#栈帧)
+- [sizeof](#sizeof)
+  - [为什么要字节对齐](#为什么要字节对齐)
+- [const关键字](#const关键字)
+- [static关键字](#static关键字)
+- [字节序：大端序，小端序和网络字节序](#字节序大端序小端序和网络字节序)
+- [define和inline和typedef](#define和inline和typedef)
+- [explicit](#explicit)
+- [extern](#extern)
+- [extern "C"](#extern-c)
+- [四种强制类型转换](#四种强制类型转换)
+- [nullptr和NULL的区别](#nullptr和null的区别)
+- [constexpr](#constexpr)
+- [string类](#string类)
+- [指针和引用的区别](#指针和引用的区别)
+- [智能指针](#智能指针)
+  - [`unique_ptr`](#unique_ptr)
+  - [`shared_ptr`](#shared_ptr)
+    - [make\_shared](#make_shared)
+- [C++ OOP](#c-oop)
+  - [虚函数，虚表，虚指针](#虚函数虚表虚指针)
+  - [RTTI(Run-Time Type Information, 运行时类型信息)](#rttirun-time-type-information-运行时类型信息)
+  - [虚继承](#虚继承)
+  - [C++类对象的初始化和析构顺序](#c类对象的初始化和析构顺序)
+- [C++模板编程](#c模板编程)
+  - [类型模板参数](#类型模板参数)
+  - [非类型模板参数](#非类型模板参数)
+  - [模板编译](#模板编译)
+  - [依赖类型](#依赖类型)
+  - [部分特化（偏特化）（Partial Specialization）](#部分特化偏特化partial-specialization)
+  - [SFINAE机制（Substitution Failure Is Not An Error）](#sfinae机制substitution-failure-is-not-an-error)
+  - [CRTP](#crtp)
+- [C++并发编程](#c并发编程)
+  - [原子操作（atomic operation）](#原子操作atomic-operation)
+  - [CAS(Compare-And-Swap / Compare-And-Set)](#cascompare-and-swap--compare-and-set)
+  - [互斥量`std::mutex`](#互斥量stdmutex)
+  - [条件变量（`std::condition_variable`）](#条件变量stdcondition_variable)
+
+# OOP三大特性
+封装，继承，多态
+1. 多态  
+多态（polymorphism）指为不同 **数据类型** 的实体提供统一的 **接口**，或使用一个单一的符号来表示多个不同的类型。
+
+# C++编译过程
+
+C++的编译过程可以分为四步：预处理，编译，汇编和链接
+
+1. 预处理（.ii）  
+    ⾸先是源代码⽂件hello.c和相关的头⽂件，如stdio.h等被预编译器cpp预编译成⼀个.i⽂件。对于C++程序来说，它的源代码⽂件的扩展名可能是.cpp或.cxx，头⽂件的扩展名可能是.hpp，⽽预编译后的⽂件扩展名是.ii。
+
+    预处理做的工作如下：
+    - 将所有`#define`删除，并展开所有的宏定义。
+    - 处理所有条件预编译指令，如`#if, #ifdef, #elif, #else, #endif`
+    - 处理`#include`预编译指令，将被包含的文件插入到该预编译指令的位置。注意，这个过程是递归进行的，因为被包含的文件可能还包含其他文件
+    - 删除所有注释
+    - 添加行号和文件名标识，便于编译时编译器产生调试用的行号信息以及编译时产生错误或警告的行号
+    - 保留所有`#pragma`编译器指令，因为编译器需要使用他们
+2. 编译（.s）  
+    编译过程就是把预处理完的文件进行⼀系列词法分析、语法分析、语义分析及优化后⽣产相应的汇编代码⽂件
+3. 汇编（.o）  
+    汇编器是将汇编代码转变成机器可以执行的指令，每一个汇编语句都对应一条机器指令
+4. 链接  
+
+## 编译单元
+C++ 编译单元是每个 `.cpp` 文件连同它 `#include` 的所有头文件展开后形成的完整源文件，是被编译器独立编译的最小单位。
+
+# 目标文件的格式（Linux中的ELF）文件
+⽬标⽂件就是源代码编译后但未进⾏链接的那些中间⽂件（Windows的.obj和Linux下的.o），它跟可执⾏⽂件的内容与结构很相似，所以⼀般跟可执⾏⽂件格式⼀起采⽤⼀种格式存储。从⼴义上看，⽬标⽂件与可执⾏⽂件的格式其实⼏乎是⼀样的，所以我们可以⼴义地将⽬标⽂件与可执⾏⽂件看成是⼀种类型的⽂件，在Windows下，我们可以统称它们为PE-COFF⽂件格式。在Linux下，我们可以将它们统称为ELF⽂件。
+
+不光是可执⾏⽂件（Windows的.exe和Linux下的ELF可执⾏⽂件）按照可执⾏⽂件格式存储。动态链接库（DLL，Dynamic LinkingLibrary）（Windows的.dll和Linux的.so）及静态链接库（StaticLinking Library）（Windows的.lib和Linux的.a）⽂件都按照可执⾏⽂件格式存储。它们在Windows下都按照PE-COFF格式存储，Linux下按照ELF格式存储。静态链接库稍有不同，它是把很多⽬标⽂件捆绑在⼀起形成⼀个⽂件，再加上⼀些索引，你可以简单地把它理解为⼀个包含有很多⽬标⽂件的⽂件包。ELF⽂件标准⾥⾯把系统中采⽤ELF格式的⽂件归为如表3-1所列举的4类。
+
+<img src="./picture/csguide_3.png" alt="s" width="600"/> 
+
+## 目标文件是什么样的
+
+<img src="./picture/csguide_4.png" alt="s" width="600"/> 
+
+ELF文件开头是一个“文件头”，描述了整个文件的文件属性，包括文件是否可执行，是静态连接还是动态链接及入口地址，目标硬件，目标操作系统等信息。文件头还包括段表在文件中偏移的字段。段表描述了文件中各个段在文件中的偏移位置以及段的属性等，从段表里面可以得到每个段的所有信息。
+<img src="./picture/csguide_5.png" alt="s" width="600"/> 
+
+文件头后面就是每个段的内容。⽐如代码段保存的就是程序的指令，数据段保存的就是程序的静态变量等。
+
+⼀般C语⾔的编译后执⾏语句都编译成机器代码，保存在.text段；已初始化的全局变量和局部静态变量都保存在. data段；未初始化的全局变量和局部静态变量⼀般放在⼀个叫.“bss”的段⾥。我们知道未初始化的全局变量和局部静态变量默认值都为0，本来它们也可以被放在.data段的，但是因为它们都是0，所以为它们在.data段分配空间并且存放数据0是没有必要的。程序运⾏的时候它们的确是要占内存空间的，并且可执⾏⽂件必须记录所有未初始化的全局变量和局部静态变量的⼤⼩总和，记为.bss段。所以.bss段只是为未初始化的全局变量和局部静态变量预留位置⽽已，它并没有内容，所以它在⽂件中也不占据空间。
+
+根据编译器不同可能会有一个只读数据段（.rodata）,用于存储只读数据，如字符串常量"%d/n"，而有些编译器会直接把这个数据放在.data段里面而不做单独的区分。
+
+<img src="./picture/csguide_6.png" alt="s" width="600"/> 
+
+## 链接的接口——符号
+
+在链接中，⽬标⽂件之间相互拼合实际上是⽬标⽂件之间对地址的引⽤，即对函数和变量的地址的引⽤。
+
+⽐如⽬标⽂件B要⽤到了⽬标⽂件A中的函数“foo”，那么我们就称⽬标⽂件A定义（Define）了函数“foo”，称⽬标⽂件B引⽤（Reference）了⽬标⽂件A中的函数“foo”。这两个概念也同样适⽤于变量。每个函数或变量都有⾃⼰独特的名字，才能避免链接过程中不同变量和函数之间的混淆。
+
+在链接中，我们将函数和变量统称为符号（Symbol），函数名或变量名就是符号名（Symbol Name）。
+
+我们可以将符号看作是链接中的粘合剂，整个链接过程正是基于符号才能够正确完成。链接过程中很关键的⼀部分就是符号的管理，每⼀个⽬标⽂件都会有⼀个相应的符号表（Symbol Table），这个表⾥⾯记录了⽬标⽂件中所⽤到的所有符号。每个定义的符号有⼀个对应的值，叫做符号值（Symbol Value），对于变量和函数来说，符号值就是它们的地址。
+
+```cpp
+/*
+ * SimpleSection.c
+ *
+ * Linux:
+ * gcc -c SimpleSection.c
+ *
+ * Windows:
+ * cl SimpleSection.c /c /Za
+ */
+int printf( const char* format, ... );
+int global_init_var = 84;
+int global_uninit_var;
+void func1( int i )
+{
+ printf( "%d\n", i );
+}
+int main(void)
+{
+ static int static_var = 85;
+ static int static_var2;
+ int a = 1;
+ int b;
+ func1( static_var + static_var2 + a + b );
+ return a;
+}
+
+```
+
+我们将符号表中所有的符号进行分类，它们可能是下面类型的一种：
+
+- 定义在本目标文件的全局符号,可以被其他目标文件引用。比如SimpleSection.o里面的"func1","main"和"global_init_val"。
+- 在本目标文件中引用的全局符号，却没有定义在本目标文件，这一般叫做外部符号（External Symbol），也就是符号引用，也就是SimpleSection.c中的"printf"。
+- 段名，这种符号往往由编译器产生，它的值就是该段的起始地址，⽐如SimpleSection.o⾥⾯的“.text”、“.data”等。
+- 局部符号，这类符号只在编译单元内可见。比如⽐如SimpleSection.o⾥⾯的“static_var”和“static_var2”。调试器可以使⽤这些符号来分析程序或崩溃时的核⼼转储⽂件。这些局部符号对于链接过程没有作⽤，链接器往往也忽略它们。
+- 行号信息，即目标文件指令与源代码中代码行的对应关系。
+
+对于我们来说，最值得关注的就是全局符号，即上面分类中的第一类和第二类。
+
+ELF⽂件中的符号表往往是⽂件中的⼀个段，段名⼀般叫“.symtab”。符号表的结构很简单，它是⼀个Elf32_Sym结构（32位ELF⽂件）的数组，每个Elf32_Sym结构对应⼀个符号。这个数组的第⼀个元素，也就是下标0的元素为⽆效的“未定义”符号。Elf32_Sym的结构定义如下：
+
+```cpp
+typedef struct {
+    Elf32_Word st_name;
+    Elf32_Addr st_value;
+    Elf32_Word st_size;
+    unsigned char st_info;
+    unsigned char st_other;
+    Elf32_Half st_shndx;
+} Elf32_Sym;
+```
+
+<img src="./picture/csguide_7.png" alt="s" width="600"/> 
+
+# 静态链接
+
+当我们有两个⽬标⽂件时，如何将它们链接起来形成⼀个可执⾏⽂件？这个过程中发⽣了什么？这基本上就是链接的核⼼内容：静态链接。在这⼀节⾥，我们将使⽤下⾯这两个源代码⽂件“a.c”和“b.c”作为例⼦展开分析：
+```cpp
+/*a.c*/
+extern int shared;
+
+int main(){
+    int a = 100;
+    swap(&a, &shared);
+}
+```
+
+```cpp
+/*b.c*/
+int shared = 1;
+
+void swap(int *a, int *b){
+    *a ^= *b ^= *a ^= *b;
+}
+```
+
+假设我们程序只有这两个模块"a.c"和"b.c"。首先我们使用gcc将这两个文件分别编译成目标文件"a.o"和"b.o"
+
+经过编译以后我们就得到了“a.o”和“b.o”这两个⽬标⽂件。从代码中可以看到，“b.c”总共定义了两个全局符号，⼀个是变量“shared”，另外⼀个是函数“swap”；“a.c”⾥⾯定义了⼀个全局符号就是“main”。模块“a.c”⾥⾯引⽤到了“b.c”⾥⾯的“swap”和“shared”。我们接下来要做的就是把“a.o”和“b.o”这两个⽬标⽂件链接在⼀起并最终形成⼀个可执⾏⽂件“ab”。
+
+## 空间与地址分配
+
+对于链接器来说，整个链接过程中，它就是将⼏个输⼊⽬标⽂件加⼯后合并成⼀个输出⽂件。那么在这个例⼦⾥，我们的输⼊就是⽬标⽂件“a.o”和“b.o”，输出就是可执⾏⽂件“ab”。我们在前⾯详细分析了ELF⽂件的格式，我们知道，可执⾏⽂件中的代码段和数据段都是由输⼊的⽬标⽂件中合并⽽来的。那么我们链接过程就很明显产⽣了第⼀个问题：对于多个输⼊⽬标⽂件，链接器如何将它们的各个段合并到输出⽂件？或者说，输出⽂件中的空间如何分配给输⼊⽂件？
+
+1. 按序叠加
+
+    一种简单的方案就是将输入的目标文件按次序叠加起来
+
+    <img src="./picture/csguide_8.png" alt="s" width="600"/> 
+
+2. 相似段合并
+   
+    ⼀个更实际的⽅法是将相同性质的段合并到⼀起，⽐如将所有输⼊⽂件的“.text”合并到输出⽂件的“.text”段，接着是“.data”段、“.bss”段等。
+
+    <img src="./picture/csguide_9.png" alt="s" width="600"/> 
+
+现在的连接器空间分配的策略基本上都采用上述方案的第二种，使用这种方法的链接器一般都采用一种叫两步链接的方法，也就是说整个链接过程分两步：
+
+1. 第一步：空间与地址分配
+
+    扫描所有的输⼊⽬标⽂件，并且获得它们的各个段的⻓度、属性和位置，并且将输⼊⽬标⽂件中的符号表中所有的符号定义和符号引⽤收集起来，统一放到一个全局符号表。这一步中，链接器将能够获得所有输入目标文件的段长度，并将它们合并，计算出输出文件中各个段合并后的长度和位置，并建立映射关系。
+
+2. 第二步：符号解析与重定位
+
+    使用上面一步中收集到的所有信息，读取输入文件中段的数据，重定位信息，并且进行符号解析与重定位，调整代码中的地址等
+
+
+
+# C++内存分区
+
+C++程序运行的过程中大致分为了以下几个区域：代码区，全局/静态存储区，堆区和栈区（地址从低到高）
+
+1. 代码区：  
+    代码区 (Code Segment) 也被称为文本段(Text Segment) 或者只读区，主要包括可以执行的文件 ELF (Executable and Linkable Format) 和常量(.rodata)
+2. 全局/静态存储区：  
+    全局变量和静态变量都存储在全局/静态存储区   
+    整个区域可读可写   
+    包含以下两个部分：
+    - 数据段（.data）  
+    用于存放初始化了的全局变量和静态变量  
+    存放在此段的数据在程序运行前分配，运行结束后释放  
+    有初始化值得全局变量和静态变量存放在这里
+    - BSS段（Block Started）
+    用于存放未初始化得全局变量和静态变量  
+    不占用实际的磁盘空间，只在编译时预留内存空间  
+    程序启动时会自动初始化为默认值
+3. 堆区（地址从低到高增长）  
+    堆区是用于动态内存分配的区域，当使用new（C++）或者malloc（C）分配内存时，分配的内存块就位于堆区  
+    堆区内存可以在线程之间共享，多个线程可以访问和使用堆区的相同内存
+4. 栈区（地址从高到低增长）  
+    栈区是用于实现函数调用和局部变量存储的一种内存区域。在C++中，每当调用一个函数时，系统就会自动在栈区为该函数分配一块内存，称为栈帧。栈帧用于存储函数参数，局部变量以及返回地址  
+    在多线程编程中，每个线程都有自己的栈区，栈区的内存是线程私有的，不同线程之间的栈区不共享
+
+可执行文件（ELF）布局:  
+<img src="./picture/csguide_1.png" alt="s" width="600"/> 
+
+可执行文件加载到内存后：  
+<img src="./picture/csguide_2.png" alt="s" width="600"/> 
+
+## 栈帧
+
+整个栈空间的内存是由操作系统分配的，在此基础上，单个函数调用的栈帧空间是由汇编代码决定的，也就是编译器决定的。
+
+操作系统分配栈是进程层面的，编译器分配栈帧是函数调用层面的。
+
+# sizeof
+
+1. 指针大小取决于处理器位数，32位的为4 bytes(32 bits), 64位的为8 bytes(64bits).
+2. `数组作为函数参数时会退化为指针`，大小要按指针的计算:
+```cpp
+int func(char array[]) {
+    printf("sizeof=%d\n", sizeof(array));
+    printf("strlen=%d\n", strlen(array));
+}
+
+int main() {
+    char array[] = "Hello World";
+    printf("sizeof=%d\n", sizeof(array));
+    printf("strlen=%d\n", strlen(array));
+    func(array);
+}
+```
+结果为：
+```
+sizeof=12
+strlen=11
+sizeof=8
+strlen=11
+```
+数组退化：在 C++ 中，数组在作为函数参数时会退化为指向其首元素的指针。
+
+但是，当数组直接作为 sizeof 的参数时，它不会退化，`因为 sizeof 是编译器在编译期间计算的结果`，这个时候编译器是有信息知道数组的大小。
+
+数组引用做参数：
+```cpp
+#include <iostream>
+#include <cstring>
+template <typename T, std::size_t N>
+void printSizeAndLength(const T (&arr)[N]) {
+    std::cout << "Size of arr in function: " << sizeof(arr) << std::endl; // 计算数组的大小
+    std::cout << "Length of arr: " << strlen(arr) << std::endl; // 计算字符串的长度
+}
+int main() {
+    char str[] = "Hello, world!";
+    std::cout << "Size of str in main: " << sizeof(str) << std::endl; // 计算整个字符数组的大小
+    printSizeAndLength(str);
+}
+```
+3. struct 结构体要考虑字节对齐
+   
+   **注：** 空结构体的大小为1：
+
+    C++规定：空结构体也必须有独一无二的地址，所以它的大小是1字节。
+    为了保证每个对象地址不同，C++标准规定：空结构体大小至少是1字节，即使它里面什么成员都没有。
+
+    这1字节其实没啥内容，只是为了占位。
+
+    (byte是最小的内存寻址单元)
+
+    - 结构体对齐  
+        1. 每个成员变量的地址必须是它自己类型大小的整数倍
+        2. 整个结构体的大小必须是最大对齐要求的整数倍
+        
+        例如：
+        ```cpp
+        struct A {
+            char a;  // 1字节
+            int b;   // 4字节
+            char c;  // 1字节
+        };
+        ```
+        地址偏移 | 成员 | 大小 | 说明
+        |-|-|-|-|
+        0 | a | 1字节 | 正常放置
+        1-3 | 填充(padding) | 3字节 | 为了让 b 4字节对齐
+        4-7 | b | 4字节 | 正确对齐了
+        8 | c | 1字节 | 放置 c
+        9-11 | 填充(padding) | 3字节 | 让整体大小是最大对齐（4字节）的倍数
+
+        ```cpp
+        struct B {
+            char a;  // 1字节
+            char b;  // 1字节
+            int c;  // 4字节
+        };
+        ```
+        此时这个结构体的大小为8bytes，因为只需要在b后面填充2bytes就能满足条件
+
+        ```cpp
+        struct C{
+            char a;
+            char b;
+            int c;
+            std::vector<int> d;
+        }
+        ```
+        此时这个结构体大小为32，对于vector d，vector中包含了一个指针，size(unsigned long, 8 bytes)和capacity(unsigned long, 8 bytes)。所以vector总大小为24 bytes，并且要求8字节对齐，在这个例子中不需要填充。所以最后的大小为1 + 1 + 2（填充的字节） + 4 + 24 = 32
+
+        **注：** 编译优化选项（如：`-O1, -O2, -O3`）并不会调整结构体成员的顺序来优化结构体大小。
+    - union对齐
+        联合体的对齐边界取决于其最大对齐边界的成员。联合体的大小等于其最大大小的成员，因为联合体的所有成员共享相同的内存空间。
+    - 对齐属性
+        在 C++11 及更高版本中，可以使用 `alignas` 关键字为数据结构或变量指定对齐要求。这个命令是对某个类型或者对象生效的。例如，`alignas(16) int x`; 将确保 x 的地址是 16 的倍数。
+
+## 为什么要字节对齐
+1. CPU架构要求：  
+   有些平台每次读取都是从偶数地址开始。如果一个 int 类型（假设为 32 位系统）存储在偶数地址开始的位置，那么一个读周期就可以读取这 32 位。但如果存储在奇数地址开始的位置，则需要两个读周期，并将两次读取的结果的高低字节拼凑才能得到这 32 位数据。显然这会显著降低读取效率。
+
+2. 内存访问速度更快：  
+   现代CPU访问内存通常是以块（cache line）为单位读取的，比如一次取64字节。如果数据对齐了，那么一个变量的访问可以一次内存读取就拿到。如果未对齐，CPU可能需要访问两次内存（跨cache line取数据），导致访问变慢。
+
+许多计算机系统对基本数据类型的合法地址做出了一些限制，要求某种类型对象的地址必须是某个值 K(通常是2，4或8) 的倍数 这种对齐限制简化了形成处理器和内存系统之间接口的硬件设计例如，假设一个处理器总是从内存中取8个字节节，则地址必须为8的倍数 如果我们能保证将所有的 double 类型数据的地址对齐成8的倍数，那么就可以用一个内存操作来读或者写值了。否则，我们可能需要执行两次内存访问，因为对象可能
+被分放在两个8字节内存块中。  
+
+无论数据是否对齐， x86-64 硬件都能正确工作。不过， Intel 还是建议要对齐数据以提高内存系统的性能。对齐原则是任何K字节的基本对象的地址必须是K的倍数。
+
+# const关键字
+1. 修饰变量
+2. 修饰函数参数  
+   **注：** 修饰普通参数并不能表示不同的参数来函数重载。只有const修饰指针或者引用的时候才能表示不同参数用于函数重载  
+   例如：
+   ```cpp
+   int abc(int a){
+
+   }
+
+   int abc(const int a){
+
+   }    //会报错
+
+   int cba(int* a){
+
+   }
+
+   int cba(const int* a){
+
+   }    //不会报错
+   ```
+   对于传值参数（比如int，char，double），const是无意义的。
+   因为：传值参数本来就是拷贝一份，函数体内部怎么改都不影响外面的实参。
+
+    所以编译器认为：int和const int是一样的类型！
+
+    在指针或引用时，const是有语义差异的，编译器允许重载！
+
+3. 修饰函数返回值，表示函数的返回值为只读，不能被修改。
+4. 修饰指针或引用
+5. 修饰成员函数，表示该函数不会修改对象的状态
+
+# static关键字
+存储在静态内存区而不在栈上
+1. 在函数内部修饰局部变量：  
+    修饰的变量只初始化一次，生命周期从程序开始到结束。
+2. 在类中修饰成员变量和成员函数
+   - 静态成员变量  
+    所有对象共享一份变量
+    - 静态成员函数  
+        可以在没有对象的情况下调用，不能访问非静态成员变量或者函数（因为没有`this`指针）
+3. 在文件作用域中声明全局变量或函数  
+   **注：** static 限制变量/函数的作用域只在当前编译单元（.cpp文件）内。外部其他 .cpp 文件 不能链接访问这个变量或函数。
+
+# 字节序：大端序，小端序和网络字节序
+
+- 大端序  
+  高位字节存储在低地址处，低位字节存储在高地址处。
+  在网络传输中，通常使用大端字节序，所以大端序也称为网络字节序。
+- 小端序
+  低位字节存储在低地址处，高位字节存储在高地址处。
+
+# define和inline和typedef
+
+1. define  
+    一般用于定义宏（macro），主要有两种用途：
+    - 定义常量
+    - 创建宏函数
+
+    无论哪种都是用于在编译时替换文本，也就是 `define 实际上只是做文本的替换`
+
+2. inline  
+    inline只是建议！  
+    编译器可以选择忽略你的建议，它可以根据自己的优化决策决定是否真的内联。
+
+    即使不写inline，编译器也可能自动内联小的函数。
+
+    即使写了inline，编译器也可能不内联大的复杂函数。
+
+    所以实际上，`inline更多地是"允许"多处定义函数，而不是强制性能优化。`
+
+    在C++中，inline通常用于在头文件中定义一个简短的函数
+    
+    通常，C++要求：
+
+    - 函数声明（头文件 .h）
+
+    - 函数定义（源文件 .cpp）
+
+    但是如果函数很小，比如一个简单的getter函数，我们希望直接在头文件里写定义。
+    这时，需要加inline，否则会出现多重定义错误（ODR violation：One Definition Rule）。
+
+3. typedef  
+    typedef 是一种类型定义关键字，用于为现有类型创建新的名称。  
+    与宏定义不同，typedef 是在编译阶段处理的，有更严格的类型检查。（宏定义是在预处理的时候进行文本替换）
+
+# explicit
+
+explicit 是 C++ 里`专门用来防止隐式类型转换`的一种关键字。
+
+C++允许单参数构造函数被用来做隐式类型转换。如果不小心，就会发生意料之外的转换，导致bug。
+
+加了 explicit 的构造函数/转换函数，不能被编译器自动隐式调用。必须显式调用，不能偷偷做隐式转换。
+
+# extern
+
+一般而言，C++全局变量的作用范围仅限于当前的文件。
+
+extern 用于指示变量或函数的定义在另一个源文件中，并在当前源文件中声明。
+
+也就是告诉编译器: 这个符号在别处定义了，你先编译，到时候链接器会去别的地方找这个符号定义的地址。
+
+在编译过程中， extern的作用如下：
+
+1. 在编译期，extern用于告诉编译器某个变量或函数的定义在其他源文件中，编译器会为它生成一个符号表项，并在当前源文件中建立一个对该符号的引用
+2. 在链接期，链接器将多个目标文件合并成一个可执行文件，并且在当前源文件中声明的符号，会在其他源文件中找到对应的定义，并将它们链接起来。
+
+# extern "C"
+
+`extern "C"` 是 C++ 提供的一种机制，用来告诉编译器：“这个函数/变量按照 C 的方式来链接（Linkage）。”
+
+为什么需要 `extern "C"`
+
+C++ 支持 函数重载，所以它对函数名会做处理，称为：名称改编（Name Mangling）  
+比如写了一个函数void hello();  
+- 在C++中， 编译器可能把它编译成一个奇怪的符号（比如 _Z5hellov），`带上参数信息以支持重载`。
+- 但在C中，编译器并不会这样干，而是直接叫做hello
+
+# 四种强制类型转换
+
+
+# nullptr和NULL的区别
+
+在 C++ 中，NULL 的定义实际上是一个整数值 0，而不是一个真正的指针类型。
+
+在函数重载和模板编程中这可能会导致一些问题和歧义。
+
+为了解决这个问题，C++11 引入了一个新的关键字 nullptr，用于表示空指针。
+
+nullptr 是一种特殊类型的字面值，类型为 std::nullptr_t，定义为: typedef decltype(nullptr) nullptr_t，可以隐式转换为任何指针类型。
+
+与 NULL 不同，nullptr 是一个真正的指针类型，因此可以避免一些由于 NULL 是整数类型而引起的问题。
+
+例如：
+```cpp
+#include <iostream>
+
+void foo(int x) {
+    std::cout << "foo() called with an int: " << x << std::endl;
+}
+
+void foo(char* x) {
+    std::cout << "foo() called with a char*: " << x << std::endl;
+}
+
+int main() {
+    // foo(NULL); // 编译错误：因为 NULL 会被解析为整数 0，导致二义性
+    foo(nullptr); // 无歧义：调用 void foo(char* x)
+}
+```
+
+但是在上面的例子中，如果我们再实现一个函数：
+```cpp
+void foo(int* x){
+    ...
+}
+```
+
+此时如果我们再调用这个函数会报错，重载不明确
+```
+error: call to 'foo' is ambiguous
+```
+
+这种情况下必须手动指定类型：
+```cpp
+foo((char*)nullptr);  // 调用 foo(char*)
+foo((int*)nullptr);   // 调用 foo(int*)
+```
+
+# constexpr
+
+`constexpr`（constant expression）表示：这个变量、函数、构造器可以在编译期求值
+
+在C++中，很多场景（比如数组大小、模板参数、开关判断）要求必须是编译时常量。
+
+传统的 const 只能保证“值不变”，不能保证编译时可计算。
+```cpp
+const int x = getInput();     // const：运行时才能赋值
+constexpr int y = 1 + 2 + 3;  // constexpr：编译时就能算出来
+```
+
+- 作用在变量上时，编译器能在编译时直接替换出值。
+
+- `constexpr`作用在函数上时， 如果传递的参数是编译期常量则函数在编译阶段就会被求值，而如果传的是运行时变量，则只会被当成普通函数被使用。
+```cpp
+constexpr int square(int x) {
+    return x * x;
+}
+
+int main() {
+    int a = square(10);           // 编译期调用
+    int b = square(getInput());   // 运行期调用（也是合法的）
+}
+```
+
+- `constexpr`作用在构造函数上时，和函数一样，如果是编译期常量则在编译时就可以构造对象。
+```cpp
+struct Point {
+    int x, y;
+    constexpr Point(int x_, int y_) : x(x_), y(y_) {}
+};
+
+constexpr Point p1(1, 2);  // 编译时构造
+```
+
+- C++17 引入了`if constexpr`，这个条件在编译期就会被判断，`不会编译不符合条件的分支`
+
+# string类
+
+常用构造方式：
+```cpp
+std::string s1;                    // 空字符串
+std::string s2("hello");           // 从C字符串构造
+std::string s3(5, 'x');            // s3 == "xxxxx"
+std::string s4 = s2;               // 拷贝构造
+std::string s5 = std::move(s3);    // 移动构造
+```
+
+常用函数:
+| 方法                                   | 作用                        |
+| ------------------------------------ | ------------------------- |
+| `size()` / `length()`                | 返回字符串长度                   |
+| `empty()`                            | 是否为空                      |
+| `clear()`                            | 清空字符串                     |
+| `c_str()`                            | 返回 C 风格字符串（`const char*`） |
+| `at(i)` / `operator[i]`              | 访问第 `i` 个字符               |
+| `append()` / `+=`                    | 添加内容                      |
+| `substr(pos, len)`                   | 截取子串                      |
+| `find()` / `rfind()`                 | 查找字符或子串                   |
+| `replace()` / `insert()` / `erase()` | 修改内容                      |
+
+示例：
+```cpp
+std::string s = "Hello";
+s += ", world!";               // 拼接
+std::cout << s[0];             // H
+std::cout << s.substr(7, 5);   // world
+std::cout << s.find("world"); // 7
+s.replace(0, 5, "Hi");         // Hi, world!
+```
+**注：** string的`size()`不会包括字符串的终止字符`'/0'`
+
+# 指针和引用的区别
+
+1. 指针是一个变量，它保存了另一个变量的内存地址；引用是一个变量的别名，与原变量共享内存地址。
+2. 指针可以被重新赋值，指向不同的变量；引用在初始化之后不能更改，始终指向同一个变量。
+3. 指针可以为nullptr，表示不指向任何变量；引用必须绑定到一个变量，不能为空。
+4. 使用指针需要解引用；引用不需要。
+
+# 智能指针
+
+1. std::unique_ptr<T> ：独占资源所有权的指针。
+2. std::shared_ptr<T> ：共享资源所有权的指针。
+3. std::weak_ptr<T> ：共享资源的观察者，需要和 std::shared_ptr 一起使用，不影响资源的生命周期
+
+## `unique_ptr`
+当我们独占资源的所有权的时候，可以使用 std::unique_ptr 对资源进行管理——离开 unique_ptr 对象的作用域时，会自动释放资源。这是很基本的 RAII 思想。
+
+`unique_ptr`是move_only的
+
+## `shared_ptr`
+`shared_ptr`是C++11引入的智能指针类，通过引用计数来管理堆内存资源，多个shared_ptr可以共享同一块资源，在最后一个引用销毁时自动释放内存
+
+### make_shared
+
+std::make_shared<T>(args...) 会一次性分配内存来存储 控制块 + 对象本身，因此它比直接用 new 构造 shared_ptr 更高效、异常安全、简洁。
+
+对比：
+
+传统方式
+```cpp
+std::shared_ptr<MyClass> sp(new MyClass(args));  // 不推荐
+```
+在这个例子中，程序进行了两次构造，产生了两次内存分配：   
+1. 一次new分配Myclass
+2. 一次new分配控制块
+
+make_shared:  
+```cpp
+auto sp = std::make_shared<MyClass>(args);  // 推荐
+```
+一次同时分配控制块+对象在同一块内存中
+
+实现方法：
+
+`std::make_shared` 通过内部定义的模板类（如 `_Sp_counted_ptr_inplace`）把控制块和对象一起放进一块内存中，从而一次性分配，避免多次 `new`。
+```cpp
+...
+return shared_ptr<MyClass>(
+    new _Sp_counted_ptr_inplace<MyClass, Alloc>(args..., allocator));
+```
+```cpp
+template<typename T, typename Alloc>
+class _Sp_counted_ptr_inplace : public _Sp_counted_base {
+    alignas(T) unsigned char _storage[sizeof(T)];
+    T* _get_ptr() noexcept { return reinterpret_cast<T*>(&_storage); }
+
+public:
+    template<typename... Args>
+    _Sp_counted_ptr_inplace(Args&&... args) {
+        ::new (_get_ptr()) T(std::forward<Args>(args)...);  // 原地构造对象
+    }
+
+    virtual void _M_dispose() noexcept override {
+        _get_ptr()->~T();  // 调用析构函数
+    }
+
+    virtual void* _M_get_deleter(const std::type_info&) noexcept override {
+        return nullptr;
+    }
+};
+```
+这个类：
+- 继承自控制块基类，提供计数功能
+- 拥有一块`char[]`的缓冲区(`unsigned char _storage[sizeof(T)]`)
+- 用`placement new(::new (_get_ptr()) T(std::forward<Args>(args)...))`在这块内存中原地构造对象
+
+思考题：为什么用`shared_ptr`实现`list`会出现栈溢出的情况  
+因为在析构某个节点时（比如头节点），会自动释放next变量，而next在单向链表中是唯一一个对下一个节点的引用，释放next会导致下一个节点对应的智能指针的引用计数减一归零，从而释放下一个节点，以此类推导致整个链表节点全部被析构，而且这个析构是递归进行的，会导致函数调用栈不断增长，如果链表较长就会导致栈溢出。
+
+# C++ OOP
+
+## 虚函数，虚表，虚指针
+https://zhuanlan.zhihu.com/p/563418849
+
+虚函数 是 C++ 支持多态（Polymorphism）实现的关键机制。它允许你`通过基类指针或引用调用子类的重写方法`。  
+```cpp
+class Base {
+public:
+    virtual void show() { // 虚函数
+        std::cout << "Base show" << std::endl;
+    }
+};
+
+class Derived : public Base {
+public:
+    void show() override { // 重写
+        std::cout << "Derived show" << std::endl;
+    }
+};
+
+int main() {
+    Base* p = new Derived();
+    p->show(); // 输出 "Derived show"，不是 "Base show"
+}
+```
+
+---
+
+当一个类中有虚函数时，编译器会为该类生成一个虚函数表（virtual table，简称 vtable），本质上是一个函数指针数组。
+
+每个含虚函数的类对象中，会有一个隐藏的指针指向该类的 vtable，称为 虚指针（vptr）。
+
+例如：
+```cpp
+class A{
+public:
+    virtual void a() { cout << "A a()" << endl; }
+    virtual void b() { cout << "A b()" << endl; }
+    virtual void c() { cout << "A c()" << endl; }
+    int x, y;
+}
+
+int main(){
+    std::cout << sizeof(A) << std::endl; 
+}
+```
+
+得到的结果会是A的大小为16（两个int大小为8， 一个函数指针大小为8 bytes(64 bits, 在64位机器上)）
+
+---
+
+虚表是储存在只读数据区(.rodata)的一张全局函数指针表，记录所有虚函数的地址  
+虚指针是储存在每个对象实例内存中的一个隐藏成员变量
+
+
+
+
+## RTTI(Run-Time Type Information, 运行时类型信息)
+
+RTTI 让你在运行时知道一个对象真正的类型（而不仅仅是它的基类指针类型）。
+
+用处：
+1. `typeid`
+- 用于获取对象的类型信息（返回 type_info 对象）
+
+- 语法：typeid(expression)
+
+```cpp
+#include <iostream>
+#include <typeinfo>
+using namespace std;
+
+class Base { virtual void foo() {} };
+class Derived : public Base {};
+
+int main() {
+    Base* b = new Derived();
+    cout << typeid(*b).name() << endl; // 输出 Derived 类型名（编译器特定）
+}
+```
+⚠️ 注意：
+
+- typeid(*b) 会触发 多态行为，返回的是对象实际类型。
+
+- typeid(b) 返回的是指针类型：Base*。
+
+2. `dynamic_cast`  
+
+    dynamic_cast运算符能够将基类的指针或引用安全的转换为派生类的指针或者引用。
+
+    **注：** `dynamic_cast`在转换失败时会返回`nullptr`
+
+    **注：** 类中必须至少有一个虚函数，这样对象才有 vtable（虚函数表），编译器才能嵌入 RTTI 信息。 否则`dynamic_cast` 和 `typeid` 用于指针或引用时会抛异常或行为未定义。
+```cpp
+class Animal { public: virtual ~Animal() {} };
+class Dog : public Animal { public: void bark() {} };
+
+int main() {
+    Animal* a = new Dog();
+    Dog* d = dynamic_cast<Dog*>(a); // ✅ 成功转换
+    if (d) d->bark();
+
+    Animal* a2 = new Animal();
+    Dog* d2 = dynamic_cast<Dog*>(a2); // ❌ 转换失败，d2 为 nullptr
+}
+```
+
+## 虚继承
+虚继承是一种特殊的继承方式，主要是为了解决菱形继承问题，`确保多重继承时某个基类只被继承一次`，即使它出现在多个继承路径中。
+
+菱形继承问题：  
+```cpp
+struct A { int x; };
+struct B : public A {};
+struct C : public A {};
+struct D : public B, public C {};
+```
+这时D中包含两份A的成员：
+```cpp
+D d;
+d.B::x = 1;
+d.C::x = 2;  // ⚠️ 模糊不清！
+```
+这是菱形继承问题：D 间接继承了两份 A → 重复 → 二义性 → 潜在错误。
+
+这个时候我们就可以使用虚继承来解决这个问题：
+```cpp
+struct A { int x; };
+struct B : virtual public A {};
+struct C : virtual public A {};
+struct D : public B, public C {};
+```
+现在：
+- D 中只保留一份 A
+- B 和 C 不再各自维护独立的 A 子对象
+- A 的构造、析构交给最派生类（D）负责
+
+| 特性     | 普通继承               | 虚继承               |
+| ------ | ------------------ | ----------------- |
+| 多重路径继承 | 每条路径产生一份基类         | 所有路径共享一份基类        |
+| 子类成员访问 | 二义性（需要 B::A, C::A） | 只有一份，统一访问         |
+| 构造顺序   | 每个子类构造自己的 A        | 最底层派生类构造 A        |
+| 内存布局   | 多份 A，占空间多          | 一份 A，需指针跳转访问（更复杂） |
+
+## C++类对象的初始化和析构顺序
+
+在多重继承中，构造函数的执行顺序与它们在继承列表中出现的顺序一致，而不是在派生类构造函数初始化列表中的顺序。
+
+例如
+```cpp
+#include <iostream>
+
+struct A {
+    A() { std::cout << "A\n"; }
+};
+
+struct B {
+    B() { std::cout << "B\n"; }
+};
+
+struct C : public A, public B {
+    C() { std::cout << "C\n"; }
+};
+```
+输出顺序是：
+```cpp
+A
+B
+C
+```
+
+但是在有虚继承和一般继承存在的情况下，优先虚继承:
+```cpp
+struct A {
+    A() { std::cout << "A\n"; }
+};
+
+struct B {
+    B() { std::cout << "B\n"; }
+};
+
+struct C {
+    C() { std::cout << "C\n"; }
+};
+
+struct D : virtual A, B, virtual C {
+    D() { std::cout << "D\n"; }
+};
+```
+
+结果：
+```cpp
+A
+C
+B
+D
+```
+
+
+
+# C++模板编程
+
+## 类型模板参数
+```
+template <typename T>
+int compare (const T &vl, const T &v2)
+{
+    if (vl < v2) return -1;
+    if (v2 < v1) return 1;
+    return 0;
+}
+```
+**实例化函数模板：**  
+当我们调用一个函数模板时,编译器(通常)用函数实参来为我们推断模板实参。即,
+当我们调用 compare 时,编译器使用实参的类型来确定绑定到模板参数的类型。例如,
+在下面的调用中:
+```
+cout << compare (1, 0) << endl; // T为int
+```
+实参类型是int。编译器会推断出模板实参为int,并将它绑定到模板参数。
+编译器用推断出的模板参数来为我们实例化(instantiate)一个特定版本的函数。当编
+译器实例化一个模板时,它使用实际的模板实参代替对应的模板参数来创建出模板的一个
+新“实例”。
+
+## 非类型模板参数
+```
+template<unsigned N, unsigned M>
+int compare (const char (&p1) [N], const char (&p2) [M])
+{
+    return strcmp(p1, p2);
+}
+```
+一个非类型参数可以是一个整型,或者是一个指向对象或函数类型的指针或(左值)引用。  
+在模板定义内,模板非类型参数是一个常量值。在需要常量表达式的地方,可以使用非类型参数,例如,指定数组大小。
+
+## 模板编译
+当编译器遇到一个模板定义时,它并不生成代码。只有当我们实例化出模板的一个特定版本时,编译器才会生成代码。  
+也就是说只有当我们使用(而不是定义)模板时,编译器才生成代码。
+
+## 依赖类型
+```
+template <typename T>
+void func() {
+    T a;                       // 不需要`typename`
+    typename T::value_type x;  // ✅ 需要 `typename`，因为 `T::value_type` 依赖 `T`
+}
+
+```
+当编译器无法在模板实例化之前确定它的具体类型（类型还是变量）时，我们称之为依赖类型，需要在前面加上`typename`来告诉编译器这是个类型。  
+在这个例子中`T::value_type`只有在模板实例化的时候才能知道这个是变量还是类型，比如下面这两个类的情况。
+```
+template <typename T>
+class Myclass1{
+    typedef T value_type;
+}
+
+class Myclass2{
+    int value_type;
+}
+```
+在这个例子中，如果`T`是`Myclass1<int>`，则`T::value_type`是一个类型。  
+而如果`T`是`Myclass2`，则此时`T::value_type`是一个变量。  
+所以这种情况我们要用`typename`告诉编译器这是一个类型。  
+<br>
+在我们的stl实现中，有这样一个例子：
+```
+template <typename T>
+constexpr T&&
+forward(typename std::remove_reference<T>::type& t){
+    return static_cast<T&&>(t);
+}
+```
+我们可以看到参数列表中的`std::remove_reference<T>::type& t`前面用了`typename`  
+是因为`std::remove_reference<T>::type` 是一个 “依赖类型（Dependent Type）”，编译器在解析模板代码时无法确定它是否是一个类型，因此需要 `typename` 来显式指定。
+
+还有一个例子：
+```
+template <typename T>
+constexpr typename mystl::remove_reference<T>::type&& move(T&& t){
+    return static_cast<typename mystl::remove_reference<T>::type&&>(t);
+}
+```
+在这个函数的返回类型前需要加上`typename`。因为这个返回类型也是一个依赖类型。
+
+## 部分特化（偏特化）（Partial Specialization）
+部分特化（Partial Specialization） 是 C++ 模板的一种高级特性，它允许我们对部分模板参数进行特化，而不是完全特化整个模板。
+
+部分特化的核心思想是：
+- 让主模板 处理通用情况。
+- 让部分特化版本 优化或定制某些特定情况。
+- 部分特化不是全特化（全特化要求所有模板参数都被特化）。
+常见用法：
+1. 处理指针类型
+```
+template <typename T>
+class TypeTraits {
+public:
+    static void show() { std::cout << "General type\n"; }
+};
+
+// 🎯 仅当 `T` 是指针类型时，使用此特化版本
+template <typename T>
+class TypeTraits<T*> {
+public:
+    static void show() { std::cout << "Pointer type\n"; }
+};
+
+int main() {
+    TypeTraits<int>::show();   // 输出：General type
+    TypeTraits<int*>::show();  // 输出：Pointer type
+}
+```
+
+2. 处理数组类型
+```
+template <typename T>
+class TypeTraits {
+public:
+    static void show() { std::cout << "General type\n"; }
+};
+
+// 🎯 仅当 `T` 是数组类型时，使用此特化版本
+template <typename T, size_t N>
+class TypeTraits<T[N]> {
+public:
+    static void show() { std::cout << "Array type\n"; }
+};
+
+int main() {
+    TypeTraits<int>::show();    // 输出：General type
+    TypeTraits<int[5]>::show(); // 输出：Array type
+}
+```
+3. 处理`std::pair`的特定情况
+```
+template <typename T1, typename T2>
+class MyPair {
+public:
+    static void show() { std::cout << "General MyPair\n"; }
+};
+
+// 🎯 当 T1 和 T2 相同时，使用此特化版本
+template <typename T>
+class MyPair<T, T> {
+public:
+    static void show() { std::cout << "Specialized MyPair for same type\n"; }
+};
+
+int main() {
+    MyPair<int, double>::show(); // 输出：General MyPair
+    MyPair<int, int>::show();    // 输出：Specialized MyPair for same type
+}
+```
+全特化例子：
+```
+template <>
+class MyClass<int> {  // ✅ 全特化：仅适用于 `int`
+public:
+    static void show() {
+        std::cout << "Full specialization for int\n";
+    }
+};
+```
+
+## SFINAE机制（Substitution Failure Is Not An Error）
+SFINAE (Substitution Failure Is Not An Error，替换失败不是错误) 是 C++ 模板元编程中的一个核心机制，它允许编译器在模板参数替换失败时，不会报编译错误，而是会回退到其他可用的模板版本。使模板能够根据类型的特性自动匹配最合适的版本。  
+使用例子：  
+`std::enable_if`允许在模板元编程中有选择地使用或禁用某些模板：
+```
+#include <iostream>
+#include <type_traits>
+
+// 仅适用于整数类型
+template <typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
+void func(T) {
+    std::cout << "Integral type\n";
+}
+
+// 仅适用于浮点类型
+template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>>
+void func(T) {
+    std::cout << "Floating point type\n";
+}
+
+int main() {
+    func(10);     // ✅ 匹配 `is_integral<T>` -> Integral type
+    func(3.14);   // ✅ 匹配 `is_floating_point<T>` -> Floating point type
+}
+```
+
+又比如：
+ ```
+template <typename iter, 
+typename mystl::enable_if<mystl::is_iterator<iter>::value, int>::type = 0,
+typename mystl::enable_if<mystl::is_the_same_type<typename mystl::iterator_traits<iter>::value_type, value_type>::value, int>::type = 0>
+list(iter first, iter end){
+    copy_init(first, end);
+}
+ ```
+其中`enable_if`的实现为：
+```
+template <bool B, typename = void>
+struct enable_if {};
+
+template <typename T>
+struct enable_if<true, T>{
+    using type = T;
+};
+```
+运用了部分特化的特性，只有当B=true时候，结构体`enable_if`才会有`type`这个属性，所以在模板替换的时候,如果`enable_if`模板的第一个类型不为`true`，则`enable_if`不包含`type`这个属性，从而导致`mystl::enable_if<...>::type`的替换失败，从而使编译器不选择这个模板函数编译。
+
+## CRTP
+
+CRTP是一种让子类作为模板参数传给父类的设计模式，可以用于实现静态多态  
+例如：
+```cpp
+template<typename Derived>
+class Base {
+public:
+    void interface() {
+        static_cast<Derived*>(this)->implementation();
+    }
+};
+
+class Derived : public Base<Derived> {
+public:
+    void implementation() {
+        std::cout << "Derived implementation\n";
+    }
+};
+
+int main() {
+    Derived d;
+    d.interface();  // 调用的是 Derived::implementation()
+}
+```
+
+或者这样写更好体现多态：
+```cpp
+#include <iostream>
+#include <cmath>
+
+template <typename Derived>
+class Shape {
+public:
+    void area() {
+        static_cast<Derived*>(this)->computeArea();
+    }
+};
+
+class Circle : public Shape<Circle> {
+public:
+    Circle(double radius) : radius(radius) {}
+
+    void computeArea() {
+        double area = M_PI * radius * radius;
+        std::cout << "Circle area: " << area << std::endl;
+    }
+
+private:
+    double radius;
+};
+
+class Rectangle : public Shape<Rectangle> {
+public:
+    Rectangle(double width, double height) : width(width), height(height) {}
+
+    void computeArea() {
+        double area = width * height;
+        std::cout << "Rectangle area: " << area << std::endl;
+    }
+
+private:
+    double width, height;
+};
+
+template <typename T>
+static void showArea(Shape<T> &shape) {
+    std::cout << "Here's the area:" << std::endl;
+    shape.area();
+}
+
+int main() {
+    Circle circle(5.0);
+    showArea(circle);
+
+    Rectangle rectangle(4.0, 6.0);
+    showArea(rectangle);
+
+    return 0;
+}
+```
+
+# C++并发编程
+
+## 原子操作（atomic operation）
+
+原子操作（atomic operation） 是一种 不可被中断的、要么全部执行完，要么完全不执行的操作。在并发环境中，它可以保证数据的正确性而无需加锁。
+| 特性        | 说明                         |
+| --------- | -------------------------- |
+| **不可中断**  | 操作在执行期间不会被线程切换、中断或 CPU 抢占  |
+| **可见性一致** | 所有线程看到的是操作前或操作后状态，没有“中间状态” |
+| **执行原子性** | 不会被其他线程看到“部分完成”的操作过程       |
+
+举个例子  
+假设我们有一个整数变量 x = 0，多个线程对它执行 x += 1：  
+这个看起来是“一步”的操作，实际上编译器会翻译成三步：
+```asm
+load x    // 加载 x 的值
+add 1     // 加 1
+store x   // 写回 x
+```
+如果这三步不是原子的，就可能出现 竞态条件（race condition），导致两个线程都看到相同的 x 值，导致 ++ 操作丢失。
+
+原子操作的例子：`x.fetch_add(1)`
+```cpp
+std::atomic<int> x{0};
+x.fetch_add(1);  // 原子地加 1，不可中断
+```
+这一整步是 由 CPU 的原子指令（如 `lock xadd`）完成，不会出现中间状态。
+
+## CAS(Compare-And-Swap / Compare-And-Set)
+
+CAS是一种**原子操作**，他的作用是：  
+**如果内存中的值等于我期望的值，就把他改成新值，否则不改。**  
+意味着CAS操作中比较和赋值是一步完成的。
+
+CAS操作是CPU提供的原子指令  
+在x86架构下是`lock cmpxchg`指令
+
+## 互斥量`std::mutex`
+基础用法：
+```cpp
+#include <mutex>
+
+std::mutex mtx;
+
+void thread_func() {
+    mtx.lock();
+    // 临界区代码
+    mtx.unlock();
+}
+```
+推荐使用C++的RAII风格上锁：
+```cpp
+void thread_func() {
+    std::lock_guard<std::mutex> lock(mtx);  // 构造时上锁，作用域结束时析构自动释放
+    // 临界区
+}
+```
+还有一种`std::unique_lock` 也在构造时上锁、析构时解锁，但还允许手动锁/解锁。
+
+| 方法                 | 说明                 |
+| ------------------ | ------------------ |
+| `lock()`           | 阻塞直到获得锁            |
+| `unlock()`         | 释放锁                |
+| `try_lock()`       | 立即尝试加锁，成功返回 `true` |
+| `std::lock_guard`  | RAII 风格自动加锁/解锁     |
+| `std::unique_lock` | 更灵活的锁（可延迟、释放、移动）   |
+
+C++标准库中的`std::mutex`是对操作系统同步原语的封装：
+```cpp
+class mutex {
+private:
+    pthread_mutex_t _M_mutex;
+public:
+    void lock() { pthread_mutex_lock(&_M_mutex); }
+    void unlock() { pthread_mutex_unlock(&_M_mutex); }
+    ...
+};
+```
+
+`pthread_mutex_t`实际是一个结构体，简化后的结构大致如下：
+```cpp
+typedef struct {
+    int __lock;       // 用于快速锁定（原子加锁标志）
+    int __count;      // 重入锁计数（如果是 recursive 类型）
+    int __owner;      // 当前持有锁的线程 ID
+    ...
+} pthread_mutex_t;
+```
+最核心的是`_lock`字段，用原子变量控制“锁是否被持有”
+
+上锁的底层流程（简化）：  
+1. 用户态原子枪锁  
+快速路径，不需要进入内核态进行系统调用
+```cpp
+int expected = 0;
+if (__atomic_compare_exchange(&mutex->__lock, &expected, 1)) {
+    // 成功上锁，无需系统调用
+}
+```
+2. 如果失败了
+进入慢路径
+- 将当前线程加入等待队列
+- 调用内核`futex(mutex_addr, FUTEX_WAIT, ...)`把线程挂起
+```cpp
+futex(&mutex->__lock, FUTEX_WAIT, expected_value);
+```
+
+## 条件变量（`std::condition_variable`）
+
+`std::condition_variable`是一个条件变量，用于让线程挂起等待某个条件成立，当条件满足时由另一个线程通知它继续运行
+
+| 函数             | 说明                  |
+| -------------- | ------------------- |
+| `wait(lock)`   | 当前线程释放锁，并阻塞等待，直到被通知 |
+| `notify_one()` | 唤醒一个正在 `wait` 的线程   |
+| `notify_all()` | 唤醒所有等待的线程           |
+
+```cpp
+std::mutex mtx;
+std::condition_variable cond;
+bool ready = false;
+
+void worker() {
+    std::unique_lock<std::mutex> lock(mtx);
+    cond.wait(lock, []{ return ready; });  // 🔒 自动释放锁 → 阻塞等待 → 被唤醒 → 重新加锁
+    std::cout << "Worker activated!" << std::endl;
+}
+
+void notifier() {
+    std::this_thread::sleep_for(1s);  // 模拟某种延迟
+    {
+        std::lock_guard<std::mutex> lock(mtx);
+        ready = true;
+    }
+    cond.notify_one();  // 通知等待线程
+}
+```
