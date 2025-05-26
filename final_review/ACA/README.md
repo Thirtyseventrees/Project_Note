@@ -5,6 +5,11 @@
     - [Cache Hit and Cache Miss](#cache-hit-and-cache-miss)
     - [Unified Cache vs. Separate I$ \& D$ (Harvard architecture)](#unified-cache-vs-separate-i--d-harvard-architecture)
     - [Cache Structure](#cache-structure)
+    - [Direct Mapped Cache](#direct-mapped-cache)
+    - [Fully associative cache](#fully-associative-cache)
+    - [n-way Set Associative Cache](#n-way-set-associative-cache)
+    - [Write-Through and Write-Back](#write-through-and-write-back)
+    - [Write allocate and No write allocate](#write-allocate-and-no-write-allocate)
   - [Classifying cache misses](#classifying-cache-misses)
   - [Improving cache performance](#improving-cache-performance)
     - [Reduce the miss rate](#reduce-the-miss-rate)
@@ -13,6 +18,21 @@
 - [Virtual memory](#virtual-memory)
   - [Page Table](#page-table)
   - [Translation Lookaside Buffer(TLB)](#translation-lookaside-buffertlb)
+- [ILP (Instruction Level Parallelism)](#ilp-instruction-level-parallelism)
+  - [Basic (CPI, IPC)](#basic-cpi-ipc)
+  - [Dependences](#dependences)
+  - [Imprecise execptions](#imprecise-execptions)
+  - [Multi-Cycle Pipelining \& Dynamic Scheduling](#multi-cycle-pipelining--dynamic-scheduling)
+    - [Multi-cycle In-Order Pipeline](#multi-cycle-in-order-pipeline)
+    - [Multi-cycle Out-of-order Pipeline](#multi-cycle-out-of-order-pipeline)
+    - [Dynamic Scheduling](#dynamic-scheduling)
+  - [Multiple-Issue processors](#multiple-issue-processors)
+  - [Static Scheduling](#static-scheduling)
+  - [Static vs. Dynamic scheduliing](#static-vs-dynamic-scheduliing)
+- [Scoreboard Dynamic Scheduling Algorithm](#scoreboard-dynamic-scheduling-algorithm)
+  - [Basic assumptions](#basic-assumptions)
+  - [Basic scheme](#basic-scheme)
+  - [Four stages of scoreboard control](#four-stages-of-scoreboard-control)
 
 
 # Cache
@@ -106,7 +126,7 @@ The correspondence depends on the cache structure:
 - Fully associative Cache
 - n-way Set-Associative Cache
 ---
-**Direct Mapped Cache**  
+### Direct Mapped Cache  
 
 Each memory location corresponds to one and only one cache location
 
@@ -118,7 +138,7 @@ Index用来判断cache中对应的地址，Tag用来检测是否Cache Hit(检测
 
 ---
 
-**Fully associative cache**
+### Fully associative cache
 
 In a fully associative cache, the memory block can be placed in any position of the cache
 
@@ -130,7 +150,7 @@ $$Number\ of\ blocks\ = Cache\ Size\  /\ Block\ Size $$
 
 ---
 
-**n-way Set Associative Cache**
+### n-way Set Associative Cache
 
 Cache composed of sets, each set composed of `n` blocks:
 
@@ -175,7 +195,7 @@ For Set associative or fully associative caches:
 
 ---
 
-**Write-Through and Write-Back**
+### Write-Through and Write-Back
 
 - Write-Througe:   
     The information is written to both the block in the cache and to the block in the lower-level memory
@@ -198,7 +218,7 @@ Advantages:
 
 ---
 
-**Write allocate and No write allocate**
+### Write allocate and No write allocate
 
 - Write allocate  
     Allocate new cache line in cache then write(double write to cache)  
@@ -341,3 +361,260 @@ A TLB miss maybe due to a real TLB miss or to a page fault:
 
 <img src="./picture/image_12.png" alt="s" width="600"/> 
 <img src="./picture/image_13.png" alt="s" width="600"/> 
+
+# ILP (Instruction Level Parallelism)
+
+## Basic (CPI, IPC)
+
+- IF: Instruction Fetch, 取指
+- ID: Instruction Decode, 译指
+- EX：Execution, 运行
+- ME: Memory Access, 访存，包括读内存和写内存
+- WB: Write Back, 写回，将值写回寄存器
+
+<img src="./picture/image_14.png" alt="s" width="600"/> 
+
+Pipelining overlaps the execution of instructions -> it exploits the "Instruction Level Parallelism"
+
+IPC: Instructions per cycle (每周期指令数):  
+表示CPU每个时钟周期能完成多少条指令
+
+CPI: Cycles per instruction (每指令周期数):  
+表示平均每条指令需要多少个时钟周期才能完成
+
+Maximize performance in terms of throughput: `Instructions per clock(IPC)`  
+Minimize the `CPI = 1 / IPC`
+
+In ideal situtation, IPC = 1, CPI = 1
+
+## Dependences
+
+There are three different type of dependences in a code:
+
+1. True Data Dependences:  
+   An instruction j is dependent on a data produced by a pervious instruction i
+
+2. Name Dependences:  
+   Two instructions use the same register or memory location    
+   Can be sloved by register renaming.  
+   Name dependences include two type:
+   - Anti-dependence
+   - Output-dependence  
+
+3. Control Dependences:  
+   They impose the ordering of instructions
+
+- RAW hazards correspond to true data dependences
+- WAR hazards correspond to anti-dependences
+- WAW hazards correspond to output dependences
+
+## Imprecise execptions
+
+在发生异常时，处理器无法准确地指出哪个指令引发了异常，或当时系统中哪些指令已经执行、哪些未执行。
+
+精确异常（Precise Exceptions）定义：  
+一个异常是精确的，如果在异常被报告时：  
+
+1. 所有在异常指令之前的指令都已完全执行；
+
+2. 异常指令以及其后的所有指令都没有对系统状态产生任何影响（即它们未执行）。
+
+不精确异常（Imprecise Exceptions）定义：  
+当异常发生时，如果：
+
+1. 有的后续指令已经部分或全部执行；
+
+2. 或者系统不能准确回溯异常的指令；
+
+## Multi-Cycle Pipelining & Dynamic Scheduling
+
+Assumption:
+
+Previous:  
+- Single-issue processors (one instruction issued per clock cycle)
+- Instructions are issued in-order
+
+Now:  
+- Execution stage might require multiple cyclts latancy (ie. multiple operations are typically longer than add/sub operations)
+- Memory stages might require multiple cycles access time due to instruction and data cache misses
+
+### Multi-cycle In-Order Pipeline
+
+每条指令可以在某些阶段占用多个周期，但所有指令必须顺序进入/完成流水线。
+
+Delayed WB -> `all operations have same latency to WB stage` to force in-order commit of instructions.
+
+`One instruction in & one instruction out at every cycle`
+
+<img src="./picture/image_15.png" alt="s" width="600"/> 
+
+### Multi-cycle Out-of-order Pipeline
+
+- ID stage split in 2 stages: Instruction Decode(ID) & Register Read(IS)
+- Multiple functional units with variable latency
+- Long latency multi-cycle floating-point instructions
+- Memory system with variable access time
+- No commit point -> need to check for WAR & WAW hazaeds and imprecise exception
+
+<img src="./picture/image_16.png" alt="s" width="600"/> 
+
+- In-order issue of instructions
+- Out-of-order execution and out-of-order commit of instructions
+- Need to check for WAR & WAW hazaeds and imprecise exception
+
+### Dynamic Scheduling
+
+Due to true data dependences that cannot be solve by forwarding, cause stall of the pipeline -> No new instruction are fetched even if they are not data dependent.
+
+Thus, the idea is:  
+**Allow data independent instructions behind a stall to proceed.**  
+HW manages dynamically the instruction exection to reduce stalls:   
+**An instruction execution beings as soon as their operands are available** or  
+**Execution beings as soon as RAW hazards are sloved and operands are available**
+
+This generates out-of-order execution and commit
+
+## Multiple-Issue processors
+
+Scalar pipeline limited to CPI = 1
+- It can never fetch and execute more than one instruction per clock: single-issue
+- It can be even worst due stalls added to solve hazards
+
+Thus, our ideal is multiple-issue, means that we can **fetch and execute more than one instruction per clock**
+
+To achieve it, instruction dependences must be detected and sloved: instructions must be re-oredered (scheduled)
+
+<img src="./picture/image_17.png" alt="s" width="600"/> 
+<img src="./picture/image_18.png" alt="s" width="600"/> 
+
+Superscalar Execution:  
+**Multiple-issues and dynamic scheduling**
+
+Pros:  
+- very high performance
+
+Cons:  
+- Very complex logic and area cost to check and manage dependencies at runtime
+- Cycle time limited by scheduling logic
+- It does not scale well 
+
+## Static Scheduling
+
+Static scheduling done by the compiler  
+Instruction dependences are avoided by code reordering at compile time
+
+Output of the compiler: instructions are reordered into dependency-free parallel instructions, otherwise NOPs are introduced in the code.
+
+Typivsl architecture: VLIW (Very Long Instruction Word) processors expect dependency-free code generated at static time by the compiler
+
+VLIW的核心思想是将多个操作（操作指令）打包进一条很长的指令字，然后一次性发给多个执行单元并行执行。
+
+例如，一条VLIW指令可能看起来像：
+```
+| ALU op | FPU op | Load op | Branch op |
+```
+这条指令会在一个周期内发到 4 个执行单元并行执行。
+
+**Main limits of static scheduling:**  
+- Unpredictable branch behavior: the code parallelzation is limited to basic blocks.
+- Unpredictable cache behavior: Variable memory latency for hits/misses.
+- Complexity of compiler technology
+- Code size explosion due to insertion of NOPs
+
+## Static vs. Dynamic scheduliing
+
+- Static scheduling: Rely on the compiler for identifying potential parallelism (at compile time)
+- Dynamic scheduling: Depend on the hardware to locate parallelism (at runtime)
+
+<img src="./picture/image_19.png" alt="s" width="600"/> 
+
+# Scoreboard Dynamic Scheduling Algorithm
+
+## Basic assumptions
+
+- Consider a **single-issue** processor
+- **in-order issue**
+- Instruction execution beings as soon as operands are ready whenever not dependent on previous instructions (no RAW hazards)
+- There are multiple pipelined function units with variable latencies.
+- Execution stage might require multiple cycles, depending on the operation type and latency.
+- Memory stage might require multiple cycles access time due to data cache misses.
+
+-> **In-order issue, Out-of-order execution and out-of-order commit**
+
+We distinguish when an instruction **beings execution** and it **completes execution**: between the two times, the instruction is **in execution**
+
+No forwarding
+
+Imprecise exception model
+
+## Basic scheme
+
+<img src="./picture/image_20.png" alt="s" width="600"/> 
+
+Scoreboard divides the ID stage in two stages:  
+1. Issue - Decode instructions and check for structural hazards
+2. Read operands (RR) - wait until not dependent on previous instructions and no data hazards, then read operands.
+
+Scoreboard keep track of dependencies and state of parallel ongoing operations
+
+Instructions **pass through the issue stage in-order**, but they can be stalled or bypass each other in read operand stage (**out-of-order read**)
+
+**Summary:** In-order issue but out-of-order read operands -> out-of-order execution & commit
+
+---
+
+No register renaming (This is compile time technique)  
+Out-of-order commit  
+-> WAR and WAW hazards can occur
+
+- Solution for WAR:
+    - Read register only during Read Operands stage
+    - Stall write back until previous register have been read.
+- Solution for WAW
+  - Detect WAW hazard and stall issue of new instruction until previous instruction which causes WAW completes.
+
+---
+
+Any hazard detection and resolution is centralized in the Scoreboard:  
+- Every instruction goes through the Scoreboard, where a record of data dependences is constructed
+- The Scoreboard then determines when the instruction can read its operand and begin execution (check for RAW)
+- If the Scoreboard decides the instruction cannot execute immediately, it monitors every change and decides when the instruction can execute.
+- The scoreboard controls when the instruction can write its result into destination register (check for WAR & WAW)
+
+---
+
+**Keep track of the status of instructions, functional units and registers**
+
+<img src="./picture/image_21.png" alt="s" width="600"/> 
+
+## Four stages of scoreboard control
+
+1. Issue
+    Decode instruction and check for structural hazards and WAW hazards.
+
+    - If a functional unit for the instruction is available (no structural hazard) and no other active instruction has the same destination register (no WAW hazard) ->  the Scoreboard issues the instruction to the FU and updates its data structure.
+    - If either a structural hazard or a WAW hazard exists -> the instruction issue stalls until these hazards are solved.
+
+2. Read Operands  
+   Wait until no RAW hazards -> then read operands.
+
+    A source operand is available if:  
+    - No earlier issued active instruction will write it or  
+    - A function unit is writing its value in a register
+
+   **RAW hazards** are solved dynamically in this step
+
+3. Execution  
+    The FU begins execution upon receiving operands. 
+
+    When the result is ready, it notifies the Scoreboard that execution has been completed.
+
+4. Write result  
+    Check for WAR hazards  
+    Check for structureal hazards in writing RF and finish execution
+
+    Once the Scoreboard is aware that the FU has completed execution, the Scoreboard checks for WAR hazards.
+    - If none, it writes results
+    - else, the Scoreboard stalls the completing instruction
+
+<img src="./picture/image_22.png" alt="s" width="600"/> 
