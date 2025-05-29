@@ -1,3 +1,9 @@
+- [Branch Prediction Techniques](#branch-prediction-techniques)
+  - [Static Branch Prediction Techniques](#static-branch-prediction-techniques)
+  - [Dynamic Branch Predictin Techniques](#dynamic-branch-predictin-techniques)
+    - [Branch History Table](#branch-history-table)
+    - [Branch Target Buffer](#branch-target-buffer)
+    - [Correlating Branch Predictors](#correlating-branch-predictors)
 - [Cache](#cache)
   - [Temporal Locality（时间局限性） 和 Spatial Locality（空间局限性）](#temporal-locality时间局限性-和-spatial-locality空间局限性)
   - [Cache memory](#cache-memory)
@@ -29,10 +35,112 @@
   - [Multiple-Issue processors](#multiple-issue-processors)
   - [Static Scheduling](#static-scheduling)
   - [Static vs. Dynamic scheduliing](#static-vs-dynamic-scheduliing)
-- [Scoreboard Dynamic Scheduling Algorithm](#scoreboard-dynamic-scheduling-algorithm)
-  - [Basic assumptions](#basic-assumptions)
-  - [Basic scheme](#basic-scheme)
-  - [Four stages of scoreboard control](#four-stages-of-scoreboard-control)
+  - [Scoreboard Dynamic Scheduling Algorithm](#scoreboard-dynamic-scheduling-algorithm)
+    - [Basic assumptions](#basic-assumptions)
+    - [Basic scheme](#basic-scheme)
+    - [Four stages of scoreboard control](#four-stages-of-scoreboard-control)
+  - [Tomasulo dynamic scheduling algorithm](#tomasulo-dynamic-scheduling-algorithm)
+    - [Basic concepts](#basic-concepts)
+    - [Register File and Store Buffers](#register-file-and-store-buffers)
+    - [Tomasulo stage](#tomasulo-stage)
+  - [VLIW Architectures](#vliw-architectures)
+
+# Branch Prediction Techniques
+
+<img src="./picture/image_25.png" alt="s" width="600"/> 
+
+通过增加硬件使得可以在ID阶段结束时得到分支结果以及跳转地址
+
+1. Static Branch Prediction Techniques:
+   The prediction (taken/untaken) for a branch is fixed at compile time for each branch during the entire execution of the program.
+2. Dynamic Branch Prediction Techniques:
+   The prediction for a branch can change at runtime during the program execution
+
+## Static Branch Prediction Techniques
+
+Effective when the branch behavior for the target appliction is highly predictable at compile time
+
+1. Branch Always Not Taken
+
+    Assume the branch will be always not taken  
+    Suitable for **IF-THEN-ELSE** conditional statements (Forwarding-going branches)
+
+   - Predict the branch not taken at the end of IF stage
+   - Simple to implement (no need to know the Branch Target Address)
+        
+    If the prediction was incorrect:  
+    - Need to flush the instruction already fetched (it is turned into a nop)
+    - Need to fetch the instruction at the branch target address  
+    --> One-cycle branch penalty
+
+2. Branch Always Taken
+
+    Suitable for backward branches such as for loops and do-while loops.
+
+    We need to know the branch target address (BTA)  
+    -> In the IF stage we need to add a branch target buffer
+
+3. Backward Taken Forward Not Taken (BTFNT)
+
+    - Backward-going branches are predicted as taken.
+    - Forward-going branches are predicted as not taken.
+
+4. Profile-Driven Prediction
+
+    Based on profiling information collected during earlier runs about the branch behavior.
+
+5. Delayed Branch Technique
+
+    The compiler statically schedules an independent instruction in the branch delay slot.
+
+    Four ways to schedule:  
+    - From befor
+    - From target
+    - From Fall-Through
+    - From after
+
+## Dynamic Branch Predictin Techniques
+
+based on two interacting hardware blocks:
+
+1. Branch Outcome Predictor (BOP)
+   To predict the direction of a branck (Taken or Not Taken)
+2. Branch Target Buffer (BTB)
+   To predict the branch target address in case of taken branch
+
+Placed in the IF stage
+
+### Branch History Table
+
+1-bit branch history table:
+
+Table containing 1 bit for each branch that says whether the branch was recently Taken or Not Taken.
+
+<img src="./picture/image_26.png" alt="s" width="600"/> 
+
+<img src="./picture/image_27.png" alt="s" width="600"/> 
+
+---
+
+2-bit branch history table:  
+
+<img src="./picture/image_28.png" alt="s" width="600"/> 
+
+### Branch Target Buffer
+
+Branch Target Buffer (Branch Target Predictor) is a cache storing the Predicted Target Address (PTA) for the taken-branch instructions.
+
+The BTB is used in combination with the Branch History Table in the IF stage.
+
+<img src="./picture/image_29.png" alt="s" width="600"/> 
+
+### Correlating Branch Predictors
+
+The idea is: the behavior of recent branches are correlated, that is the recent behavior of other branches rather than just the current branch can influence the prediction of the current branch.
+
+Branch predictors use the behavior of other branches to make a prediction are called correlating predictors
+
+Example a (1,1) Correlating Predictors means a 1-bit predictor with 1-bit of correlation
 
 
 # Cache
@@ -528,9 +636,9 @@ VLIW的核心思想是将多个操作（操作指令）打包进一条很长的�
 
 <img src="./picture/image_19.png" alt="s" width="600"/> 
 
-# Scoreboard Dynamic Scheduling Algorithm
+## Scoreboard Dynamic Scheduling Algorithm
 
-## Basic assumptions
+### Basic assumptions
 
 - Consider a **single-issue** processor
 - **in-order issue**
@@ -547,7 +655,7 @@ No forwarding
 
 Imprecise exception model
 
-## Basic scheme
+### Basic scheme
 
 <img src="./picture/image_20.png" alt="s" width="600"/> 
 
@@ -587,13 +695,19 @@ Any hazard detection and resolution is centralized in the Scoreboard:
 
 <img src="./picture/image_21.png" alt="s" width="600"/> 
 
-## Four stages of scoreboard control
+### Four stages of scoreboard control
 
 1. Issue
-    Decode instruction and check for structural hazards and WAW hazards.
+    Decode instruction and check for **structural hazards** and WAW hazards.
 
-    - If a functional unit for the instruction is available (no structural hazard) and no other active instruction has the same destination register (no WAW hazard) ->  the Scoreboard issues the instruction to the FU and updates its data structure.
+    - If **a functional unit** for the instruction is available (no structural hazard) and no other active instruction has the same destination register (no WAW hazard) ->  the Scoreboard issues the instruction to the FU and updates its data structure.
     - If either a structural hazard or a WAW hazard exists -> the instruction issue stalls until these hazards are solved.
+
+    Issue阶段要判断对应的FU是否可用，如果不可用则不进入issue阶段
+
+    **注：** Scoreboard是in-order issue，所以当一条指令阻塞在issue之前，后面的指令也不能运行  
+
+    **注：** 对于structural hazards，并不是对应的unit完成了就可以进行下一条，而是需要对应的指令进入下一个阶段才能进行下一条
 
 2. Read Operands  
    Wait until no RAW hazards -> then read operands.
@@ -618,3 +732,144 @@ Any hazard detection and resolution is centralized in the Scoreboard:
     - else, the Scoreboard stalls the completing instruction
 
 <img src="./picture/image_22.png" alt="s" width="600"/> 
+
+**Attention:** Scoreboard can be optimized by:
+- Check for WAW postponed from ISSUE stage to WRITE stage
+- Forwarding
+
+Forwarding是指在结果尚未写回寄存器文件之前，直接从流水线后段将结果传递到需要它的前段阶段以供下一条指令使用  
+也就是说对于RAW hazards，前一条指令在完成EX阶段之后下一条指令就可以运行而不用stall到WB阶段之后
+
+## Tomasulo dynamic scheduling algorithm
+
+Same with other dynamic scheduling algorithm  
+Tomasulo enables instructions execution behind a stall to processed
+
+The different is:  
+Tomasulo introduces the implicit register renaming to avoid WAR & WAW hazards
+
+### Basic concepts
+
+Tomaslo intrduces some FU buffers called "Reservation Stations"(RSs) in fronts of the FUs to keep pending operands
+
+The control logic & RSs are distributed with function units (vs. centralized in scoredboard)
+
+<img src="./picture/image_23.png" alt="s" width="600"/> 
+
+Registers in instructions are replaced by their values or pointer to reservation stations (RS) to enable implicit register renaming.  
+- Avoids WAR, WAW hazards by renaming results by using RS numbers instead of RF numbers
+- More reservation stations than register, so can do optimizations compilers can't
+
+The basic idea is:   
+Results are passed to FUs from Reservation Stations, not through Registers, over to common data bus that **boardcasts** results to all FUs and to store buffers
+
+<img src="./picture/image_24.png" alt="s" width="600"/> 
+
+### Register File and Store Buffers
+
+Each entry in the RF and in the store buffers have a value (V_i) and a Pointer (Q_i) field.  
+每个存储在寄存器文件和store buffer的数据都有一个值和一个指针
+
+值表示寄存器或者buffer中的值  
+指针并不是传统意义上的指针，而是一个Tag，表示从对应编号的RS获取结果  
+如果Q_i为0意味着值已经在register或者buffer里面了（即V_i）
+
+### Tomasulo stage
+
+1. Issue  
+    - Renaming register
+    - WAR resolution: If I write Rx, read by an instruction K already issued, K knows already the value of Rx read in RS buffer or knows what instruction will write it. So that RF can be linked to I
+    - WAW resolution: Since we use in-order issue, the RF can be linked to I.
+
+2. Start Execution  
+    - When both operands ready (Check for RAW hazards sloved)
+    - When FU available (Check for structural hazards in FU)
+    - If, not ready, monitor the Command Data Bus for results.
+
+3. Write result
+
+- When result is available, write it on Common Data Bus and from there into Register File and into all RSs waiting for result.  
+
+1. Issue阶段
+    从指令队列中取出一条指令：
+    - 找到可用的RS
+    - 检查操作数：
+      - 如果就绪，存入V字段
+      - 如果未就绪，存入Q字段（即等谁来给我值）
+    - 目标寄存器也不立即更新，而是记录等待哪个RS的结果
+
+2. Execute阶段
+   - 当所有操作数就绪（Q为空，V有值）
+     - 指令开始在对应的FU执行
+
+3. Write Result阶段
+   - 执行完成后通过commond data bus广播结果
+     - 所有等待这个结果的RS/寄存器，更新V并且清空Q
+   - 目标寄存器更新值，同时清空Q字段
+   - RS被标记为空，可以发射新指令
+
+## VLIW Architectures
+
+Static scheduling: The compiler issues statically a fixed number of instructions at each clock cycle
+
+Compilers can use sophisticated algorithms for code scheduling to exploit ILP  
+
+- Detect whether instructions can be parallelized given the hardware resource constraints and the data dependencies
+- Schedule statically instructions to be executed in parallel, otherwise insert NOPs.
+
+--- 
+
+The single-issue packet represents a wide instruction with multiple independent operations per instruction  
+which named **Very Long Instruction Word**
+
+The complier solves statically the structural hazards and data hazards, otherwise the compiler inserts NOPs.
+
+---
+
+The long instruction (bundle) has a fixed set of operations.  
+Example: A 4-issue VLIW has a long instruction to contain **up to** 4 operations corresponding to 4 slots.
+
+There is a Shared Multi-ported Register File:  
+If the bundle has 4 slots -> we need 2 * 4 = 8 read ports and 4 write ports to read 8 source register per cycle and to write 4 destination register per cycle.
+
+To keep busy the FUs, there must be enough parallelism in the source code to fill in the available 4 operation slots. Otherwise, **NOPs are inserted**
+
+If each slot is assigned to a Functional Unit => the decode unit is a simple decoder and each op is passed to the corresponding FU to be executed.
+
+<img src="./picture/image_30.png" alt="s" width="600"/> 
+
+If there are more parallel FUs than the number of issues (slots) => the architecture must have a dispatch network to redirect each op and the related source operands to the target FU.
+
+<img src="./picture/image_31.png" alt="s" width="600"/> 
+
+---
+
+To solve PAW hazards in VLIW processors:  
+
+- The compiler during the scheduling phase reorders statically instructions
+- Otherwise, the compiler introduces some NOPs.
+
+Operation latencies and data dependencies must be exposed to the compiler  
+For example:
+```
+I       [C = A * B, ...];   latency 2 cycles
+I + 1   [NOP, ...];         inserted by complier
+I + 2   [X = C * F, ...];   
+```
+
+WAR and WAW hazards are statically solved by the compiler by correctly selecting temporal slots for the operations or by using Register Renaming.
+
+---
+
+To keep in-order execution, the Write Back phase of the parallel ops in a bundle must **occur at the same clock cycle**.
+
+**注：** Ops in a bundle are constrainted to the latency of the longer latency op in the bundle.
+
+---
+
+The compiler at static time does not know the behavior of some dynamic events such as: 
+
+- Data cache misses: Stalls are introduced at runtime
+- Branch misprediuctions: Need of flushing at runtime the execution of speculatibe instructions in the pipeline
+
+$$code\ efficiency =  Instruction\ count\ /\ (cycles\ *\ issues)$$
