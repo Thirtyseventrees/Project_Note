@@ -44,6 +44,23 @@
     - [Register File and Store Buffers](#register-file-and-store-buffers)
     - [Tomasulo stage](#tomasulo-stage)
   - [VLIW Architectures](#vliw-architectures)
+- [Multithreading](#multithreading)
+  - [Coarse-grained Multithreading](#coarse-grained-multithreading)
+  - [Fine-grained Multithreading](#fine-grained-multithreading)
+  - [Simultaneous Multithreading (SMT)](#simultaneous-multithreading-smt)
+- [Multiprocessors](#multiprocessors)
+  - [How to connect processors](#how-to-connect-processors)
+    - [Cost/Performance Tradeoffs](#costperformance-tradeoffs)
+    - [Architecture](#architecture)
+    - [Memory model](#memory-model)
+  - [Distributed Shared Memory (DSM)](#distributed-shared-memory-dsm)
+  - [Pros/Cons of shared memory](#proscons-of-shared-memory)
+  - [Pros/Cons of message passing](#proscons-of-message-passing)
+  - [Cache Coherence](#cache-coherence)
+    - [Snooping Protocols](#snooping-protocols)
+      - [MSI](#msi)
+      - [MESI](#mesi)
+    - [Directory-Based Protocols](#directory-based-protocols)
 
 # Branch Prediction Techniques
 
@@ -472,6 +489,8 @@ A TLB miss maybe due to a real TLB miss or to a page fault:
 
 # ILP (Instruction Level Parallelism)
 
+ILP refers to the parallel execution of independent instruction from a single thread of execution within a processor
+
 ## Basic (CPI, IPC)
 
 - IF: Instruction Fetch, 取指
@@ -707,7 +726,7 @@ Any hazard detection and resolution is centralized in the Scoreboard:
 
     **注：** Scoreboard是in-order issue，所以当一条指令阻塞在issue之前，后面的指令也不能运行  
 
-    **注：** 对于structural hazards，并不是对应的unit完成了就可以进行下一条，而是需要对应的指令进入下一个阶段才能进行下一条
+    **注：** 对于structural hazards，并不是对应的unit完成了就可以进行下一条，而是需要对应的指令完成后才能进行下一条
 
 2. Read Operands  
    Wait until no RAW hazards -> then read operands.
@@ -808,6 +827,8 @@ Each entry in the RF and in the store buffers have a value (V_i) and a Pointer (
    - 目标寄存器更新值，同时清空Q字段
    - RS被标记为空，可以发射新指令
 
+**注：**  RS的更新是在Write result阶段之后的
+
 ## VLIW Architectures
 
 Static scheduling: The compiler issues statically a fixed number of instructions at each clock cycle
@@ -873,3 +894,260 @@ The compiler at static time does not know the behavior of some dynamic events su
 - Branch misprediuctions: Need of flushing at runtime the execution of speculatibe instructions in the pipeline
 
 $$code\ efficiency =  Instruction\ count\ /\ (cycles\ *\ issues)$$
+
+# Multithreading
+
+TLP refers to parallel execution of multiple threads, each potentially executiong on its own processor
+
+Three types of multithreading:  
+1. Coarse-grained multithreading:  
+    When a thread is stalled, another thread can be executed.
+
+2. Fine-grained multithreading:  
+   Switching from one thread to another thread **on each instruction**
+
+3. Simultaneous multithreading:  
+   Multiple thread are using the multiple issue slots in a single clock cycle -> exploting TLP and ILP
+
+## Coarse-grained Multithreading
+
+Prons:  
+- **Long stall** are hidden by switching to another thread that uses the resouces of the processor
+
+Cons:
+- Within each clock, ILP limitation still lead to empty issue slots.
+- When there is one stall, it is necessary to empty the pipeline befor starting the new thread.
+- The new thread has a pipeline start-up period with some idle cycles remaining and loss of throughput
+
+## Fine-grained Multithreading
+
+Switches between threads on each instruction.  
+Execution of multiple thread is interleaved in a round-robin fashion, **skipping any thread that is stalled at that time eliminating fully empty slots**
+Suitable for single- and multiple-issue dynamic scheduled processors.
+
+Prons:  
+- It can hide both short and long stalls because instructions from other threads are executed when one thread stalls.
+
+cons:  
+- It slow down the execution of individual threads, since a thread that is ready to execute without stalls will be delayed by another threads.
+- Higher overhead due to more frequent HW context switch
+
+## Simultaneous Multithreading (SMT)
+
+Suitable for multiple-issue dynamic scheduled processors.  
+Multiple thread are using the multiple issue slots in a single clock cycle -> exploiting TLP and ILP.  
+
+prons:  
+- Sutiable to maximize the use of parallel functional units available in the multiple-issues by different threads.
+- Exploit more parallelism than coarse- and fine-grained MT.
+- Minimize the number of issue slots that are left unused at the same clock cycle by coarse- and fine-grain MT
+
+cons:  
+- In large multiple-issue processors requires complex dynamic control logic to keep busy the multiple slots
+- Higher overhead and power consumption
+- It is limited by the number of issues available in the processor
+
+# Multiprocessors
+
+## How to connect processors
+
+1. Single bus  
+    Single-bus approach imposes constraints on the number of processors connected to it
+
+2. network-connected  
+
+### Cost/Performance Tradeoffs
+
+1. Cost:  
+    The network-connected has a smaller initial cost, then the costs scale up more quickly than the bus-connected machine
+    <img src="./picture/image_32.png" alt="s" width="600"/> 
+
+2. Performance  
+   Performance for both machines scales linearly until the bus reaches its limit, then performance is flat no matter how many processors are used.
+    <img src="./picture/image_33.png" alt="s" width="600"/> 
+
+### Architecture
+
+1. Arch. of Single-Bus Multiprocessors:  
+   The connection medium (the bus) is between the processors and memory -> the medium is used on every memory access.
+   <img src="./picture/image_34.png" alt="s" width="600"/>
+
+2. Arch. of Network-Connected MPs  
+   Memory is attached to each processor, and the connection medium (the network) is between the nodes -> the medium is used only for interprocessor communication.  
+   <img src="./picture/image_35.png" alt="s" width="600"/>
+
+### Memory model
+
+1. Single logically shared address space (shared memory architectures)  
+    A memory reference can be made by any processor to any memory location through loads/stores
+
+    - The processors communicate among them through shared variables in memory
+    - Communication among threads occurs through a shared address space
+    - The shared memory can be centralized or distributed over the node.
+    - Shared memory model imposes the cache coherence problem among processors
+    <img src="./picture/image_36.png" alt="s" width="600"/>
+
+2. Multiple and private address spaces (message passing architectures)  
+    The processors communicate among them through send/receive primitives
+
+    - The processors communicate among them through sending/receiving message: message passing protocol
+    - The memory of one processor cannot be accessed by another processor without the assistance of software protocols
+    - No cache coherence problem among processors  
+    <img src="./picture/image_37.png" alt="s" width="600"/>
+
+## Distributed Shared Memory (DSM)
+
+<img src="./picture/image_38.png" alt="s" width="600"/>
+
+Centralized Memory:  
+UMA (Uniform Memory Access): The access time to a memory location is uniform for all the processoes.
+
+Distributed Memory:  
+NUMA (Non Uniform Memory Access): The access time to a memory location is non uniform for all the processors: it depends on the location of the data word in memory and the processor location
+
+
+- Each processor core shares the entire memory space
+- Access time to the memory attached to the processor's node will be much faster than the access time to the remote memories
+
+## Pros/Cons of shared memory
+
+pros:  
+- implict communication
+- low latency
+- low overhead when shared data are cached
+
+cons:  
+- complex to build in a way that scales well
+- requires synchronization operations
+- hard to control data placement within caching system
+
+## Pros/Cons of message passing
+
+pros:  
+- explicit communication
+- easier to control data placement
+
+cons:
+- message passing overhead can be quite high
+- more complex to program
+- introduces question of reception technique
+
+## Cache Coherence
+
+Cache serve to:  
+- Increase bandwidth versus bus/memory
+- reduce latency of accesses
+- valuable for both private data and shared data
+
+The use of multiple copies of same data introduces a new problem: cache coherence
+
+Processors may see different value through their cache  
+Processors must have the most recent copy when reading an object, so all processors must get new values after write
+
+A write to a shared data can cause:  
+- either to invalidate all other copies
+- or to update the shared copies
+
+Key issue to implement a cache coherent protocol in multiprocessors is **tracking the state of any sharing of a data block**
+
+Two classes of protocols: 
+- Snooping Protocols
+- Directory-Based Protocols
+
+---
+### Snooping Protocols
+
+Each core tracks the sharing state of each block
+- A cache controller monitors (snoops) on the bus, to see what is being requested by another cache
+
+每个缓存都监听总线上发生的所有事务(snoops), 并根据这些事务的内容更新自己的缓存状态，以保证缓存与主内存以及其他缓存保持一致
+
+- All cache controllers monitor snoop on the bus to determine whether or not to update the state and content of the shared block
+- Every cache that has a copy of the shared block, also has a copy of the sharing state of the block
+- Send all requests for shared data to all processors
+- Require broadcast
+
+Suitable for **Centralized Shared-Memory Architectures**, and in particular for **small scale multiprocessors with single snoop bus**
+
+---
+Two types of snooping protocols depending on what happens on a write operation:  
+- Write-Invalidate Protocol
+- Write-Update (or Write-Broadcast) Protocol
+
+1. Write-Invalidate Protocol  
+    - The writing processor issues an invalidation signal over the bus to cause all copies in other to be invalidated **before** changing its local copy
+    - The writing processor is then free to update the local data until another processor asks for it
+    - All caches on the bus check to see if they have a copy of the data and, if so, they must invalidate the block containing the data
+    - This scheme allows multiple readers but only a single writer
+
+    When read miss:  
+    - Write-through: Memory always up-to-data
+    - Write-back: Snoop in caches to find the most recent copy:  
+      - On write: invalidate all other cache copies and memory not up-to-date
+      - On next read miss: first write-back to memory, then copy in cache
+        <img src="./picture/image_39.png" alt="s" width="600"/>
+2. Write-Update Protocol
+
+    The write processor broadcasts the new data over the bus; all cache check if they have a copy of the data and, if so, all copies are updated with the new value
+---
+#### MSI
+
+Write-Invalidate Snooping Protocol, Write-Back Cache
+
+Each cache block can be in one of three states:
+- Modified (or Dirty): cache has the only copy, its writeable, and dirty (block cannot be shared anymore) (此缓存行是被修改过的版本，和主内存不一致，只有本处理器拥有该数据副本。必须在换出或共享前写回内存。)
+- Shared (or Clean): The block is clean (not modified) and can be read
+- Invalid: bloclk contains no valid data
+
+Each block of memory is in one of three states:
+- **Shared** in all cache and up-to-data in memory
+- **Modified** in exactly one cache
+- **uncached** when not in any caches
+
+<img src="./picture/image_40.png" alt="s" width="600"/>
+<img src="./picture/image_41.png" alt="s" width="600"/>
+
+#### MESI
+
+Compare with MSI, there is one more state:  
+**Exclusive**: The block is clean and cache has **only copy**
+
+Benefit:  
+A write to an Exclusive block does not require to send the invalidation signal on the bus, since no other copies of the block are in other caches.
+
+---
+
+### Directory-Based Protocols  
+
+- The sharing state of a block of physical memory is kept in just one location, call directory
+  - Each entry in the directory is associated to each block in the main memory (director size is the number of memory blocks time the number of processors)
+- In CSM architectures, there is a single directory associated to the main memory
+- In DSM architectures, the directory is distributed on the nodes (one directory for each memory module) to avoid bottlenecks
+  - Even if the entries of the dircetory are distributed, the sharing state of a block is stored in a single directory
+
+The physical address space is statically distributed to the nodes:  
+- There is a global and fixed mapping of each memory block address to each node
+- Given a memory block address, it is assigned its Home node
+
+To avoid boradcast, send point-to-point requests to processors  
+Better scalable than snooping protocols
+
+Message-oriented protocol:  
+The requests generate messages sent between nodes (point-to-point requests) to maintain coherence and all message must receive explicit answers
+
+---
+
+There are 3 possible coherence states for each cache block in the directory:  
+- **Uncached**: No processor has a copy of the cache block, block not valid in any cache;
+- **Shared**: one or more processors have cache block, and memory is up-to-data
+- **Modified**: Only one processor (the owner) has data that has been modified so the memory is out-of-data
+
+
+The dircetory maintains info:  
+- The coherence state of each block: uncached, shared, modified
+- Which processors have a copy of the block (unually a bit vector set to 1 if processor has a copy. For example: 1001)
+<img src="./picture/image_42.png" alt="s" width="600"/>
+
+
+---
+
