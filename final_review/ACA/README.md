@@ -61,6 +61,9 @@
       - [MSI](#msi)
       - [MESI](#mesi)
     - [Directory-Based Protocols](#directory-based-protocols)
+  - [Coherence states in cache](#coherence-states-in-cache)
+  - [Local, Home and Remote Nodes](#local-home-and-remote-nodes)
+      - [Directory Portocol Messages](#directory-portocol-messages)
 
 # Branch Prediction Techniques
 
@@ -1137,7 +1140,7 @@ The requests generate messages sent between nodes (point-to-point requests) to m
 
 ---
 
-There are 3 possible coherence states for each cache block in the directory:  
+There are 3 possible coherence states for each cache block in the directory (In the directory):  
 - **Uncached**: No processor has a copy of the cache block, block not valid in any cache;
 - **Shared**: one or more processors have cache block, and memory is up-to-data
 - **Modified**: Only one processor (the owner) has data that has been modified so the memory is out-of-data
@@ -1148,6 +1151,101 @@ The dircetory maintains info:
 - Which processors have a copy of the block (unually a bit vector set to 1 if processor has a copy. For example: 1001)
 <img src="./picture/image_42.png" alt="s" width="600"/>
 
+sharer bits:  
+- If the block is in shared state, the sharer bits are set to 1 to indicate which processors have a copy of the block
+- If the block is in modified state, a single sharer bit is set to 1 to indicate which processors is the owner of the block
+
+Coherence states in cache
+---
+Each block in the cache can be in three possible coherence states (In the cache):  
+- **Modified**: the block is dirty and this processor is the only owner
+- **Shared**: The block is valid and up-to-date and it is shared with other processors.
+- **Invalid**: bolck contains no valid data
 
 ---
+Local, Home and Remote Nodes
+---
+- Home node:  
+  The home node is the node where the memory block and the related directory entry reside
+- Local node:  
+  The local node is the node sending read/write request
+- Remote node:
+  The remote node is where there is a copy of the memory block, whether shared or modified
+
+The local node can be the home node and the home node can be the local node
+
+The remote node can be the home node and the home node can be the remote node
+
+---
+
+Directory-based protocol must implement the basic operations for managing:  
+1. read hit
+2. read miss
+3. write hit
+4. write miss
+
+#### Directory Portocol Messages
+---
+
+1. Read hit  
+   It doesn't change anything and intra-node communication
+
+---
+
+2. Message: Read Miss  
+   - Source: Local cache
+   - Destination: Home directory
+   - Msg content: Processor P and Address ADD
+   - This is Miss request sent by Local cache to the Home directory and to make the related processor as read sharer.
+
+3. Message: Data value reply
+   - Source: Home directory
+   - Destination: Local cache
+   - Msg content: Data
+   - Return a data value from the home memory back to the requesting local node. (Read/Write miss response)
+
+    **注：** 如果在home node中对应的memory block是uncached的，即使发送了对应的数据给local node的cache，home node中对应的cache仍然不会有对应的值
+
+4. Message: Write miss
+   - Source: Local cache
+   - Destination: Home directory
+   - Msg content: Processor P and Address ADD
+   - This is miss request sent by local cache to the home directory and to make P as the exclusive owner
+
+5. Message: Request to Invalidate
+   - Source: Local cache
+   - Destination: Home directory
+   - Msg Content: Address ADD
+   - Request to Home to send invalidate to all remote caches that are caching the block at address ADD
+
+6. Message: Invalidate
+   - Source: Home directory
+   - Destination: Remote cache
+   - Msg Content: Address ADD
+   - Invalidate a shared copy of data at address ADD in a remote cache
+
+7. Message: Fetch
+   - Occurs to answer to a Read Miss on a modified block
+   - Source: Home directory
+   - Destination: Remote cache (owner)
+   - Msg content: Address ADD
+   - Fetch request sent from home directory to the remote cache to get back the most recent copy of the block
+   - Then, the owner in the remote cache will send back data to its home directory
+   - Block state in remote cache and main directory changes from modified to shared
+
+8. Message: Fetch/Invalidate
+   - Occurs to answer to a write miss on a modified block
+   - Source: Home directory
+   - Destination: Remote cache (owner)
+   - Msg content: Address ADD
+   - Fetch request sent from home directory to the remote cache to get back the most recent copy of the block
+   - Then, the owner in the remote cache will send back data to its home directory
+   - Invalidate the block in the remote cache
+   - Block state in Home directory stays Modified - but owner is change
+
+9. Message: Data write back
+    - In reply to either a fetch or a fetch/invalidate message from home memory
+    - Source: Remote cache (owner)
+    - Destination: Home directory
+    - Msg content: Address ADD and data value Data
 
