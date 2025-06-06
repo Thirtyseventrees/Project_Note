@@ -15,6 +15,33 @@
     - [Availability Zones (AZs)](#availability-zones-azs)
 - [Availability of WSCs and DCs](#availability-of-wscs-and-dcs)
 - [Server](#server)
+  - [The motherboard](#the-motherboard)
+  - [Rack vs Tower vs Blade](#rack-vs-tower-vs-blade)
+    - [Tower Server](#tower-server)
+    - [Rack Server](#rack-server)
+    - [Blade servers](#blade-servers)
+  - [Hardware Accelerators](#hardware-accelerators)
+    - [GPU](#gpu)
+    - [Tensor Processing Unit (TPU)](#tensor-processing-unit-tpu)
+    - [Field-Programmable Gate Array (FPGA)](#field-programmable-gate-array-fpga)
+- [Disk abstraction](#disk-abstraction)
+  - [Reading](#reading)
+  - [Writing](#writing)
+  - [Deleting](#deleting)
+  - [external fragmentation](#external-fragmentation)
+- [Hard Disk Drives (HDD)](#hard-disk-drives-hdd)
+  - [Four types of delay](#four-types-of-delay)
+    - [Rotation Delay](#rotation-delay)
+    - [Seek Time](#seek-time)
+    - [Transfer Time and Controller Overhead](#transfer-time-and-controller-overhead)
+  - [Calulate The I/O Service Time](#calulate-the-io-service-time)
+  - [Server Time](#server-time)
+  - [Response time](#response-time)
+  - [Disk Scheduling](#disk-scheduling)
+    - [STTF](#sttf)
+    - [SCAN](#scan)
+    - [C-SCAN](#c-scan)
+    - [C-LOOK](#c-look)
 
 
 # Data Center
@@ -218,4 +245,273 @@ DC workloads must be designed to gracefully tolerate large numbers of component 
 - Servers are hosted in individual shelves（架子）and are **the basic building blocks of DCs and WSCs**
 - They are interconnected by hieraechies of networks and supported by the shared power and cooling infrastructure
 
+Servers are like ordinary PC, usually more powerful, but with a form factor that allows to fit them into the shelves:
+- Rack (支架) (1U or more)
+- Blade enclosure format
+- Tower
 
+Servers are usually built in a tray or blade enclosure format, housing:
+- the motherboard
+- chipset
+- additional plug-in components
+
+## The motherboard
+
+connecting all the crucial components of the server and enabling them to communicate and work together
+
+It provides sockets and plug-in slots to install CPUs, memory modules (DIMMs)， local storage (such as Flash SSDs or HDDs), and network interface cards (NICs) to satisfy the range of resource requirements.
+
+## Rack vs Tower vs Blade
+<img src="./picture/image_7.png" alt="s" width = 600/> 
+
+### Tower Server
+<img src="./picture/image_8.png" alt="s" /> 
+
+相当于台式机，便于拓展加装需要的功能，相较于其他server功耗和花费都是最低的，由于机箱很大里面组件的密度很小，便于散热
+
+但是占地空间大，只能提供最基础的服务能力，不方便多个设备整合在一起工作
+
+### Rack Server
+
+**Racks are special shelves** that accommondate all the IT equipment and allow their interconnection
+
+- The racks are used to store these rack servers
+- Server racks are measured in rack unit **"U"**
+- 1U = 44.45mm
+
+**Attention:** IT equipment must conform to specific sizes to fit into the rack shelves  
+This standardized width and height allow data centers to stack many servers in a single cabinet, making it a highly space-efficient solution  
+
+Cabling for network and power is typically consolidated at the back for easier management
+
+<img src="./picture/image_9.png" alt="s" width = 600/> 
+
+好处：  
+方便控制故障，因为可以较简单地找到故障并移除替换对应的rack server  
+简化线缆(cable)管理  
+Cost-effective
+
+坏处：  
+由于较高的component density, 需要额外的cooling system，从而需要更多的power  
+由于有很多rack servers，所以维护(maintenance)起来较为困难
+
+It is often convenient to connect the network cables at the top of the rack, such a rack-level switch is appropriately called a Top of Rack (TOR) switch
+
+ ### Blade servers
+
+Blade servers take density to another level. Here, ultra-thin server boards—blades—slot into a shared enclosure that provides pooled power, networking, and sometimes even cooling.
+
+<img src="./picture/image_10.png" alt="s" width = 900/> 
+<img src="./picture/image_11.png" alt="s" width = 900/> 
+
+## Hardware Accelerators
+
+To satisfy the growing compute needs for deep learning, WSCs deploy specialized accelerator hardware: 
+- GPUs
+- TPU
+- FPGAs
+
+### GPU
+
+- Data parallel computations: the same program is executed on many data elements in parallel
+- The scientific codes are mapped onto the matrix operations
+- High-level languages are required
+- Up to 1000x faster than CPU
+
+<img src="./picture/image_12.png" alt="s" width = 600/> 
+
+GPUs are configured with a CPU host connected to a PCIe-attached accelerator with multiple GPUs
+
+GPUs within the tray are connected using high-bandwidth interconnects such as NVlink  
+Each NVlink lane supports a data rate of 50Gb/s in each direction  
+The total number of NVLink lanes increases from 6 lanes in the V100 GPU to 12 lanes in the A100 GPU and 18 for the H100 GPU
+
+---
+
+### Tensor Processing Unit (TPU)
+
+TPUs are proprietary chips engineered to handle tensor operations with high efficiency, often seen in environment focusing on deep learning.
+
+TPUv3 is the first liquid-cooled accelerator in Google's data center
+
+---
+
+### Field-Programmable Gate Array (FPGA)
+
+FPGAs are reprogrammable chips that offer flexibility for niche or rapidly changing tasks;  
+Though they are generally not as widespread as GPUs for most data center use cases
+
+<img src="./picture/image_13.png" alt="s" width = 600/> 
+<img src="./picture/image_14.png" alt="s" width = 600/> 
+
+# Disk abstraction
+
+- Disk can be seen by an OS as a collection of data blocks that can be read or written independently
+- To allow the ordering/management among them, each block is characterized by a unique numerical address called LBA (Local Block Address)
+- Typically, the OS groups blocks into **clusters** to simplify the access to the disk. **Clusters** are the minimal unit that an OS can read from or write to disk
+- Typically cluster sizes range from 1 disk sector (4KB) to 128 sectors (64 KB)
+
+Clusters contains:  
+- File data: the actual content of the files
+- Meta data: the information required to support the file system
+
+Meta data contains:
+- File name
+- Directory structures and symblic links
+- File size and file type
+- Creation, modification, last access dates
+- Security information (owners, access list, encryption)
+- Links to the LBA where the file content can be located on the disk
+
+<img src="./picture/image_15.png" alt="s" width = 700/> 
+
+## Reading
+
+<img src="./picture/image_16.png" alt="s" width = 700/> 
+
+## Writing
+
+<img src="./picture/image_17.png" alt="s" width = 700/> 
+
+Since the file system can only access clusters, the real occupation of space on a disk for a file is always a **multiple of the cluster size**
+
+- a: the actual size on disk
+- s: the file size
+- c: the cluster size
+
+$$a = \left\lceil \frac{s}{c} \right\rceil \cdot c$$
+
+w = a - s is wasted disk space due to the organization of the file into clusters  
+The waste of space is called internal fragmentation of files
+
+## Deleting
+
+Only update the meta-data to say that the blocks where the file was stored are no longer in use by the OS
+
+**Deleting a file never actually deletes the data on the disk**:  
+When a new file will be written on the same clusters, the old data will be replaced by the new one
+
+## external fragmentation
+
+<img src="./picture/image_18.png" alt="s" width = 700/> 
+
+# Hard Disk Drives (HDD)
+
+<img src="./picture/image_19.png" alt="s" width = 700/> 
+
+Hard drives expose a large number of sectors (block)
+- Typically 512 or 4096 bytes
+- Individual sector writes are atomic
+- Multiple sectors writes may be interrupted
+
+<img src="./picture/image_20.png" alt="s" /> 
+
+外圈数字小内圈数字大
+
+## Four types of delay
+
+<img src="./picture/image_21.png" alt="s" /> 
+
+### Rotation Delay
+
+Full rotation delay R = 1 / DiskRPM  
+In second Rsec = 60 * R  
+
+$$T_{rotataion\_AVG}\ =\ \frac{Rsec}{2}$$
+
+---
+
+### Seek Time
+
+Time to move the head to a different track  
+
+$$T_{seek\_AVG}\ =\ \frac{T_{seek\_MAX}}{3}$$
+
+---
+
+### Transfer Time and Controller Overhead
+
+Transfer time
+- Final phase of the I/O that takes places
+- Time that consider that data is either read from or written to the surface
+- Includes the time for the head to pass on the sectors and the I/O transfer
+
+Controller overhead  
+- Buffer management (data transfer) and interrupt sending time
+
+## Calulate The I/O Service Time
+
+<img src="./picture/image_22.png" alt="s" width = 700/> 
+
+Server Time
+---
+$$T_{I/O} = T_{seek} + T_{rotation} + T_{transfer} + T_{overhead}$$
+
+In many circumstances, this is not the case:  
+- files are larger than one block
+- they are stored in a contiguous way
+
+Thus, we can measure the **Data Locality** of a disk as the percentage of blocks that do not need seek or rotational latency to be found
+
+$$T_{I/O} = (1 - Data\ Locality)*(T_{seek} + T_{rotation}) + T_{transfer} + T_{overhead}$$
+
+Response time
+---
+T_queue waiting for resourec + T_I/O
+
+T_queue depends on:  
+- queue-length
+- resource utilization
+- mean and variance of disk service timme
+- request arrival distribution
+
+## Disk Scheduling
+
+Key Idea:  
+- If there a queue of requests to the disk, they can be reordered to improve performance  
+- Estimation of the request length is feasible knowing the position on the disk of the data
+- Several scheduling algorithms:
+  - Fist come, first serve (FCFS)
+  - Shortest seek time first (SSTF)
+  - SCAN (elevator algorithm)
+  - C-SCAN, C-LOOK
+
+### STTF
+
+Idea: minimize seek time by always selecting the block with the shortest seek time
+
+This method is optimal and can be easily implemented  
+But is prone to starvation  
+即某些请求长时间得不到处理，出现饥饿现象
+
+### SCAN
+
+1. 磁头从当前柱面开始，朝一个方向移动（例如向外）。
+
+2. 在这个方向上，依次处理所有请求。
+
+3. 移动到最远端（没有更多请求）后，改变方向。
+
+4. 然后开始朝相反方向移动，并继续处理请求。
+
+<img src="./picture/image_23.png" alt="s" width = 700/> 
+
+Pro:  
+reasonable performance, no starvation
+
+Con:  
+average access time is higher for requests at high and low addresses
+
+### C-SCAN
+
+Like SCAN, but only service requests in one direction
+
+**注：** 朝一个方向移动完之后会回到另一个方向的边界上
+
+<img src="./picture/image_24.png" alt="s" width = 700/> 
+
+### C-LOOK
+
+C-SCAN的改进，往回走的时候不会到最边上
+
+<img src="./picture/image_25.png" alt="s" width = 700/> 
