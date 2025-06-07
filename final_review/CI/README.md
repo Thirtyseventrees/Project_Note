@@ -802,7 +802,7 @@ Mirroring
 Key idea: make two copies of all data
 
 \+ high reliability  
-\+ fast writes
+\+ fast writes  
 \- high cost
 
 Mirrored writes should be atomic
