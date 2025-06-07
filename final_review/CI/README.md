@@ -42,6 +42,31 @@
     - [SCAN](#scan)
     - [C-SCAN](#c-scan)
     - [C-LOOK](#c-look)
+- [Solid State Disk (SSD)](#solid-state-disk-ssd)
+  - [Storing bit](#storing-bit)
+  - [Internal organization](#internal-organization)
+  - [Flash Translation Layer (FTL)](#flash-translation-layer-ftl)
+    - [Log-Structured FTL](#log-structured-ftl)
+    - [Garbage collection](#garbage-collection)
+    - [Mapping Table Size](#mapping-table-size)
+  - [Block mapping](#block-mapping)
+  - [Hybrid mapping](#hybrid-mapping)
+  - [Page mapping plus caching](#page-mapping-plus-caching)
+    - [Wear Leveling](#wear-leveling)
+- [Redundant Arrays of Independent Disks (RAID)](#redundant-arrays-of-independent-disks-raid)
+  - [data striping](#data-striping)
+  - [redundancy](#redundancy)
+  - [Sequence transfer rate](#sequence-transfer-rate)
+  - [Random transfer rate](#random-transfer-rate)
+  - [RAID levels](#raid-levels)
+    - [RAID 0](#raid-0)
+      - [Addressing block](#addressing-block)
+      - [Chunk Sizing](#chunk-sizing)
+      - [Analysis of RAID0](#analysis-of-raid0)
+    - [RAID 1](#raid-1)
+      - [RAID 0, 1, 0+1 and 1+0 organizations](#raid-0-1-01-and-10-organizations)
+      - [Analysis of RAID 1](#analysis-of-raid-1)
+    - [RAID 4](#raid-4)
 
 
 # Data Center
@@ -515,3 +540,305 @@ Like SCAN, but only service requests in one direction
 C-SCAN的改进，往回走的时候不会到最边上
 
 <img src="./picture/image_25.png" alt="s" width = 700/> 
+
+# Solid State Disk (SSD)
+
+Solid-state storage device
+- No mechanical or moving parts like HDD
+- Bulit out of transistors (晶体管)
+- Retain informatin despite power loss unlike typical RAM
+- A controller is included in the device with one or more solid state memory components
+- It uses traditional hard disk drive (HDD) interfaces (protocol and physical connectors) and form factors
+- Higher performances than HDD
+
+## Storing bit
+<img src="./picture/image_26.png" alt="s" width = 700/> 
+
+## Internal organization
+
+- NAND flash is organizaed in to **Pages** and **Blocks**
+- A page contain multiple logical block (512B - 4KB) addressed (LBAs)
+- A block typically consists of multiple page (e.g. 64) with total capacity of around 128 - 256 KB
+
+<img src="./picture/image_27.png" alt="s" width = 700/> 
+
+擦除以block为单位，读写以page为单位
+
+**注：NAND flash memory can not be updated in place**
+
+- Blocks (or Erase Block): smallest unit that can be erased
+- Pages: smallest unit that can be read/written
+
+Pages can be in three states:  
+- Empty (or EREASED):  
+    They donot contain data
+- Dirty (or INVALID):  
+    They contain data, but this data is no longer in use
+- In use (or VALID):  
+    The page contains data that can be actually read
+
+<img src="./picture/image_28.png" alt="s" width = 900/> 
+
+因为删除是以block为单位的，所以当要删除某个page时需要先把block中未删除的内容存入cache中，然后再删除整个block，最后把新写入的内容和原来未删除的内容写进block中
+
+## Flash Translation Layer (FTL)
+
+Flash Translation Layer (FTL) 是 SSD 中一个重要的软件/固件模块，它的作用是：
+
+将传统块设备接口（如扇区编号）转换为实际闪存芯片的物理地址。
+
+由于 NAND 闪存不能就地更新，FTL 提供了一套机制来模拟出可覆盖的块设备行为。
+
+FLT is an SSD component that make the SSD look as HDD
+- Data allocation and address translation 
+  - Efficient to reduce write amplification effects
+  - Program pages within an erased block in order
+- Garbage collection
+  - Reuse of pages with old data
+- Wear leveling
+  - FTL should try to spread writes across the block of the flash ensuring that all of the blocks of the device wear out at roughly the same time
+
+---
+
+### Log-Structured FTL
+<img src="./picture/image_29.png" alt="s" width = 900/>
+
+---
+
+### Garbage collection
+<img src="./picture/image_30.png" alt="s" width = 900/>
+<img src="./picture/image_31.png" alt="s" width = 900/>
+
+Garbage collection is expensive
+- Require reading and rewriting of live data
+- Ideal garbage collection is reclamation of a block that consists of only dead pages
+
+The cost of Garbage collection depends on the amount of data blocks that have to be migrated
+
+Solutions to alleviate the problem: 
+- Add extra flash capacity to delay the cleaning
+- Run the garbage collection in the background using less busy periods for the disk
+
+When performing background garbage collection the SSD assumes to know which pages are invalid
+
+---
+
+### Mapping Table Size
+
+The size of page-level mapping table is too large
+- With a 1TB SSD with a 4byte entry per 4KB page, 1GB of DRAM is needed for mapping. 
+
+Some approaches to reduce the costs of mapping
+- Block-based mapping
+  - Coarser grain approach
+- Hybrid mapping
+  - Multiple tables
+- Page mapping plus caching
+  - Exploiting Data Locality
+
+Block mapping
+---
+
+<img src="./picture/image_32.png" alt="s" width = 900/>
+
+Hybrid mapping
+---
+
+<img src="./picture/image_33.png" alt="s" width = 900/>
+
+Page mapping plus caching
+---
+
+The basica idea is to cache the active part of the page-mapped FTL
+- If a given workload only accesses a small set of pages, the translations of those pages will be stored in the FTL memory
+
+High performance without high memory cost if the cache can contain the necessary working set
+
+Cache miss overhead exists
+
+### Wear Leveling
+
+Log structured approach and garbage collection helps in spreading writes.  
+However, a block may consist of cold data
+- The FTL must periodically read all the live data out of such blocks and re-write it elsewhere
+
+Wear leveling increases the write amplification of the SSD and decreases performance
+
+Each flash block has EW cycle counter
+- Maintain |Max(EW cycle) - Min(EW cycle)| < e
+
+# Redundant Arrays of Independent Disks (RAID)
+
+独立磁盘冗余阵列
+
+将多个硬盘组合成一个逻辑磁盘
+
+Several independent disks that are considered as a single, large, high-performance logical disk
+
+The data are striped across several disks accessed in parallel:  
+- high data transfer rate: large data accesses
+- high I/O rate: small but frequent data accesses
+- load balancing across the disks
+
+Two orthogonal techniques:
+- data striping: to improve performance
+- redundancy: to improve reliability
+
+Externally, RAID looks like a single disk:
+- data blocks are read/written as usual
+- No need for software to explicitly manage multiple disks or perform error checking/recovery
+
+Internally, RAID is a complex computer system
+- Disk managed by a dedicated CPU + software
+- RAM and non-volatile memory
+- Many different configuration options (RAID levels)
+
+
+N - 磁盘个数  
+S - Sequence transfer rate  
+R - Random transfer rate  
+MTTF - Mean Time To Failure
+  - 表示单个设备从开始工作到发生一次故障的平均时间  
+
+MTTDL - Mean Time To Data Loss
+  - 整个RAID系统在发生不可恢复数据丢失之前能正常工作的时间
+
+
+<img src="./picture/image_34.png" alt="s" width = 900/>
+
+
+## data striping
+
+**striping**: data are written sequentially (a vector, a file, a table ...) in units (stripe unit: bit, byte, blocks) on multiple disks according to a cyclic algorithm (round robin)
+
+**stripe unit**: dimension of the unit of data that are written on a single disk
+
+**stripe width**: number of disks considered by the striping algorithm
+
+1. **multiple independent I/O requests** will be executed in parallel by several disks decreasing the queue length (and time) of the disks
+2. **single multiple-block I/O requests** will be executed by multiple disks in parallel increasing of the transfer rate of a single request
+
+## redundancy
+
+Redundancy: Data duplication or error correcting codes (stored on disks different from ones with data) are computed to tolerate loss due to disk failures
+
+Since write operations must update also the redundant information, their performance is worse than the one of the traditional writes
+
+<img src="./picture/image_35.png" alt="s" width = 700/>
+
+## Sequence transfer rate
+
+We focus on sequential and random workloads
+
+Sequence transfer rate S
+
+S = transfer_size / time_to_access
+
+<img src="./picture/image_38.png" alt="s" width = 700/>
+
+## Random transfer rate
+
+Random transfer rate R
+
+<img src="./picture/image_39.png" alt="s" width = 700/>
+
+## RAID levels
+
+-  RAID 0 striping only
+- RAID 1 mirroring only
+  - RAID 0+1 (nested levels)
+  - RAID 1+0 (nested levels)
+- RAID 4 block interleaving - redundancy (parity disk)
+- RAID 5 block interleaving - redundancy (parity block distributed)
+- RAID 6 greater redundancy (2 failed disks are tolerated)
+
+---
+
+### RAID 0
+
+**Minimum two drives required**
+
+Striping, no redundancy
+
+Data are written on a single logical disk and splitted in several blocks distributed across the disks according to a striping algorithm
+
+Used where performance and capacity, rather than relibability, are the primary concerns
+
+\+ lowest cost  
+\+ best write performance  
+\- single disk failure will result in data loss
+
+#### Addressing block
+---
+
+Disk = logical_block_number % number_of_disk
+
+Offset = logical_block_number / number_of_disk
+
+<img src="./picture/image_36.png" alt="s" width = 700/>
+
+#### Chunk Sizing
+---
+
+<img src="./picture/image_37.png" alt="s" width = 700/>
+
+#### Analysis of RAID0
+---
+
+Capacity: N    
+Reliability: 0  
+  - MTTDL = MTTF  
+Sequential read and write: N * S  
+Random read and write: N * R  
+
+---
+
+### RAID 1
+
+Mirroring
+
+**Minimum 2 disk drives**
+
+Key idea: make two copies of all data
+
+\+ high reliability  
+\+ fast writes
+\- high cost
+
+Mirrored writes should be atomic
+- All copies are written, or none are written
+
+---
+
+#### RAID 0, 1, 0+1 and 1+0 organizations
+
+RAID levels can be combined
+
+RAID x + y (or RAID xy) =>
+- n x m disks in total
+- Consider m groups of n disks
+- Apply RAID x to each group of n disks
+- Apply RAID y considering the m groups as single disks
+
+每个小组里面执行RAID x  
+每个大组里面执行RAID y
+
+<img src="./picture/image_40.png" alt="s" width = 700/>
+
+---
+
+#### Analysis of RAID 1
+
+Capacity: N / 2  
+Relability: 1 drive can fail, some time more
+- If lucky, N / 2 drive can fail without data loss
+
+Sequential write and read: (N / 2) * S  
+Random read: N * R  
+Random write: (N / 2) * S
+
+---
+
+### RAID 4
+
+<img src="./picture/image_41.png" alt="s" width = 700/>
