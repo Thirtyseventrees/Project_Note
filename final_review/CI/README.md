@@ -67,6 +67,24 @@
       - [RAID 0, 1, 0+1 and 1+0 organizations](#raid-0-1-01-and-10-organizations)
       - [Analysis of RAID 1](#analysis-of-raid-1)
     - [RAID 4](#raid-4)
+      - [Read on RAID 4](#read-on-raid-4)
+      - [Serial writes on RAID 4](#serial-writes-on-raid-4)
+      - [Random writes on RAID 4](#random-writes-on-raid-4)
+      - [Summary](#summary)
+    - [RAID 5](#raid-5)
+      - [Random Writes on RAID 5](#random-writes-on-raid-5)
+      - [Analysis of RAID 5](#analysis-of-raid-5)
+    - [Comparison of RAID Levels](#comparison-of-raid-levels)
+    - [RAID 6](#raid-6)
+    - [Characteristics of RAID levels](#characteristics-of-raid-levels)
+  - [RAID Disks: Reliability Calculation](#raid-disks-reliability-calculation)
+    - [RAID 1 - MTTF](#raid-1---mttf)
+    - [RAID 0+1 - MTTF](#raid-01---mttf)
+    - [RAID 1+0 - MTTF](#raid-10---mttf)
+    - [RAID 4 and RAID 5 - MTTF](#raid-4-and-raid-5---mttf)
+    - [RAID 6 - MTTF](#raid-6---mttf)
+    - [Summary](#summary-1)
+- [Storage System](#storage-system)
 
 
 # Data Center
@@ -673,6 +691,8 @@ Each flash block has EW cycle counter
 
 将多个硬盘组合成一个逻辑磁盘
 
+可以通过硬件方式实现（专门的RAID硬件），也可以通过软件实现（通过编写软件来实现条带化，校验，镜像等操作）
+
 Several independent disks that are considered as a single, large, high-performance logical disk
 
 The data are striped across several disks accessed in parallel:  
@@ -841,4 +861,233 @@ Random write: (N / 2) * S
 
 ### RAID 4
 
+**Minimum 3 disk drives**
+
 <img src="./picture/image_41.png" alt="s" width = 700/>
+
+---
+#### Read on RAID 4
+
+Reads (Serial or Random) are not a problem in RAID 4
+
+Parallelization across all non-parity blocks in the strip
+
+---
+#### Serial writes on RAID 4
+
+<img src="./picture/image_42.png" alt="s" width = 700/>
+
+同一个条带的写只需要更新一次parity drive
+
+Serial write has the same performance of read
+- Parallelization across all non-parity blocks in the stripe
+
+---
+#### Random writes on RAID 4
+
+<img src="./picture/image_43.png" alt="s" width = 700/>
+
+每次随机写都需要更新parity drive，使得只能串行随机写
+
+Random writes in RAID 4:
+- Read the target block and the parity block
+- Use subtraction to calculate the new parity block
+- Write the target block and parity block
+
+RAID 4 has terrible write performance
+
+---
+#### Summary
+
+Capacity: N - 1  
+Reliability: 1 drive can fail  
+Sequential read and write: (N - 1) * S  
+Random read: (N - 1) * R  
+
+Random write: R / 2
+  - Write serialize due to the parity drive
+  - Each write requires 1 read and 1 write of the parity drive, thus R / 2
+  - 读写数据对应的block和读写parity block是可以并行的，所以是分成两个阶段，一个是读数据和parity block一个是写数据和写parity block，所以最后是除2
+
+---
+### RAID 5
+
+Rotationg Parity
+
+**Minimum 3 disk drives**
+
+<img src="./picture/image_44.png" alt="s" width = 700/>
+
+#### Random Writes on RAID 5
+
+<img src="./picture/image_45.png" alt="s" width = 700/>
+
+由于parity blocks分布在N个disks上，所以一次随机读写的最大并行可以是N块disks  
+换个说法就是每个disk上都有数据，随机读的时候可以一起读
+
+但注意，因为每块disk都参与了并行，所以随机写的时候不能像RAID 4随机写的时候把访问数据和访问parity block的这两个操作并联起来  
+所以两次读和两次写只能串行处理，最后随机写的速率就要除以4
+
+#### Analysis of RAID 5
+
+Capacity: N - 1  
+Reliability: 1 drive can fail  
+Sequential read and write: (N - 1) * S
+Random read: N * R
+Random write: (N * R) / 4
+
+### Comparison of RAID Levels
+
+<img src="./picture/image_46.png" alt="s" width = 700/>
+
+---
+
+### RAID 6
+
+**Minimum 3 disk drives**
+
+More fault tolerance with respect RAID 5
+- 2 concurrent failures are tolerated
+
+High overhead for writes
+- Each write required 6 disk accesses due to the need to update both the P and Q parity blocks
+
+<img src="./picture/image_47.png" alt="s" width = 700/>
+
+---
+
+### Characteristics of RAID levels
+
+<img src="./picture/image_48.png" alt="s" width = 700/>
+
+## RAID Disks: Reliability Calculation
+
+MTTF - Mean Time To Failure
+
+$$
+MTTF_{diskArray} = MTTF_{singleDisk}\ /\ \#Disks
+$$
+
+Without any fault tolerance approach, large disk arrays are too instable to be used
+
+RAID0 has no redundancy  
+$$
+MTTF_{RAID0} = MTTF_{diskArray} = MTTF_{singleDisk}\ /\ \#Disks
+$$
+
+RAID levels (>0) uses redundancy to improve reliabilty
+
+When a disk fails, it should be replaced and the information reconstructed on the new disk using the redundant information
+- MTTR (Mean Time To Repair) is the time needed for this action
+
+N is the number of disk (#Disks) in the array
+
+<img src="./picture/image_49.png" alt="s" width = 700/>
+
+### RAID 1 - MTTF
+
+$$
+MTTF_{RAID} = (\frac{MTTF_{singleDisk}}{N}) * (\frac{1}{Probability_{2ndCriticalFailureInMTTR}})
+$$
+
+$$
+Probability_{2ndCriticalFailureInMTTR} = (\frac{1}{MTTF_{singleDisk}}) * MTTR
+$$
+
+其中 $\frac{1}{MTTF_{singleDisk}}$ 表示损害磁盘对应的镜像位的failure rate  
+$(\frac{1}{MTTF_{singleDisk}}) * MTTR$ 则表示在恢复的时间段MTTR中对应的镜像位failure的概率
+
+---
+
+### RAID 0+1 - MTTF
+
+当条带中某一个disk坏了则整个系统都不用了
+
+<img src="./picture/image_50.png" alt="s" width = 400/>
+
+比如在这个例子中如果Disk 0坏了，虽然Disk 1还在，但我们仍然认为整个组Disk 0和Disk 1都失效了
+
+因为根据RAID 0的定义，RAID 0是没有冗余的，一个disk错了则整个系统都算崩溃
+
+$$
+MTTF_{RAID} = (\frac{MTTF_{singleDisk}}{N}) * (\frac{1}{Probability_{2ndCriticalFailureInMTTR}})
+$$
+
+$$
+Probability_{2ndCriticalFailureInMTTR} = (\frac{G}{MTTF_{singleDisk}}) * MTTR
+$$
+
+---
+
+### RAID 1+0 - MTTF
+
+<img src="./picture/image_51.png" alt="s" width = 400/>
+
+$$
+MTTF_{RAID} = (\frac{MTTF_{singleDisk}}{N}) * (\frac{1}{Probability_{2ndCriticalFailureInMTTR}})
+$$
+
+$$
+Probability_{2ndCriticalFailureInMTTR} = (\frac{1}{MTTF_{singleDisk}}) * MTTR
+$$
+
+---
+
+### RAID 4 and RAID 5 - MTTF
+
+对于RAID 4和RAID 5来说，当一个disk损坏后任何一个其他的disk的损坏都是不可接受的
+
+$$
+MTTF_{RAID} = (\frac{MTTF_{singleDisk}}{N}) * (\frac{1}{Probability_{2ndFailureInMTTR}})
+$$
+
+$$
+Probability_{2ndFailureInMTTR} = (\frac{N - 1}{MTTF_{singleDisk}}) * MTTR
+$$
+
+### RAID 6 - MTTF
+
+对于RAID 6来说，在两块盘损坏之后再有一块盘损坏是不可接受的
+
+$$
+MTTF_{RAID} = (\frac{MTTF_{singleDisk}}{N}) * (\frac{1}{Probability_{2ndAnd3rdFailureInMTTR}})
+$$
+
+$$
+Probability_{2ndAnd3rdFailureInMTTR} = Probability_{2ndFailure} * Probability_{3rdFailure}
+$$
+
+$$
+Probability_{2ndFailure} = (\frac{N - 1}{MTTF_{singleDisk}}) * MTTR
+$$
+
+$$
+Probability_{3ndFailure} = (\frac{N - 2}{MTTF_{singleDisk}}) * (MTTR / 2)
+$$
+
+- **注：** 第一块和第二块盘只要有一块替换好了就可以允许第三块盘损坏，所以MTTR的时间要除2
+
+---
+
+### Summary
+
+<img src="./picture/image_52.png" alt="s" width = 800/>
+
+# Storage System
+
+- DAS (Direct-attached storage)
+  - Storage system directly attached to a server or workstation
+  - Visible as disks/volumes by the client OS
+
+- NAS (Network Attached Storage)
+  - Storage connected to the network that provides only file-based data storage services (e.g. FTP, Network File System)
+  - Visible as File Server to the client OS
+
+- SAN (Storage Area Networks)
+  - Remote storage units
+  - Connected to servers using a specific networking technology
+  - Visible as disks/volumes by the client OS
+  - Block level storage
+
+<img src="./picture/image_53.png" alt="s" width = 600/>  
+<img src="./picture/image_54.png" alt="s" width = 800/>
