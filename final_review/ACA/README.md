@@ -64,6 +64,9 @@
   - [Coherence states in cache](#coherence-states-in-cache)
   - [Local, Home and Remote Nodes](#local-home-and-remote-nodes)
       - [Directory Portocol Messages](#directory-portocol-messages)
+- [Data-Level Parallelism in SIMD and Vector Architectures](#data-level-parallelism-in-simd-and-vector-architectures)
+  - [Vector Architectures](#vector-architectures)
+  - [Convoys](#convoys)
 
 # Branch Prediction Techniques
 
@@ -830,7 +833,9 @@ Each entry in the RF and in the store buffers have a value (V_i) and a Pointer (
    - 目标寄存器更新值，同时清空Q字段
    - RS被标记为空，可以发射新指令
 
-**注：**  RS的更新是在Write result阶段之后的
+**注：**  
+- RS的更新是在Write result阶段之后的，因为向commond data bus广播是在write result阶段的
+- 由于在issue阶段就把需要的操作数加载到了RS中，进行了隐式的register renaming，所以不用考虑WAR和WAW问题
 
 ## VLIW Architectures
 
@@ -1249,3 +1254,22 @@ Directory-based protocol must implement the basic operations for managing:
     - Destination: Home directory
     - Msg content: Address ADD and data value Data
 
+# Data-Level Parallelism in SIMD and Vector Architectures
+
+Same instruction to manage parallel data
+
+<img src="./picture/image_43.png" alt="s" width="700"/>
+
+- Synchronized PEs with single Program Counter
+- Each PE has its own set of data
+
+## Vector Architectures
+
+Basic idea:
+- Load sets of data elements into vector registers
+- Operate on vector registers
+- Write the results back into memory
+
+## Convoys
+
+Set of vector instructions that could potentially execute together partially overlapped (no structural hazards)

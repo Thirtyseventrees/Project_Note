@@ -271,6 +271,7 @@ The world is divided into Geographic Areas (GAs)
 
 Availability Zones (AZs) are finer grain location within a single computing region.
 
+- Allow customers to run mission critical applications with high availability and fault tolerance to datacenter failures
 - **Application-level synchronous** replication among AZs
 - 3 AZs in CRs is minimum
 
@@ -1091,3 +1092,4 @@ $$
 
 <img src="./picture/image_53.png" alt="s" width = 600/>  
 <img src="./picture/image_54.png" alt="s" width = 800/>
+
