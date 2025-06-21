@@ -7,6 +7,14 @@
   - [归并](#归并)
 - [回溯](#回溯)
 - [快排](#快排)
+- [字符串](#字符串)
+  - [字符串按空格分割](#字符串按空格分割)
+  - [字符串转数字，数字转字符串](#字符串转数字数字转字符串)
+    - [数字转字符串：](#数字转字符串)
+    - [字符串转数字（int, float, double, long, long long）](#字符串转数字int-float-double-long-long-long)
+  - [字符串翻转](#字符串翻转)
+- [树](#树)
+  - [从前序与中序遍历序列构造二叉树](#从前序与中序遍历序列构造二叉树)
 
 # 细节
 
@@ -16,6 +24,7 @@
 ListNode* mergeTwoLists(ListNode* node1, ListNode* node2){
     ListNode* result = new ListNode();
     ...
+    return result;
 }
 ```
 
@@ -292,5 +301,145 @@ public:
             return less;
         return equal_begin;
     }
+};
+```
+
+# 字符串
+
+## 字符串按空格分割
+
+```c++
+#include <iostream>
+#include <sstream>
+#include <vector>
+#include <string>
+
+int main(){
+    std::string s = "dog cat dog cat";
+    std::istringstream iss(s);
+    std::vector<std::string> words;
+    std::string word;
+
+    while(iss >> word){
+        words.push_back(word);
+    }
+}
+
+```
+
+## 字符串转数字，数字转字符串
+
+### 数字转字符串：
+
+使用`to_string()`:
+
+```c++
+#include <string>
+#include <iostream>
+
+int main() {
+    int i = 42;
+    double d = 3.14;
+
+    std::string s1 = std::to_string(i);  // "42"
+    std::string s2 = std::to_string(d);  // "3.140000"
+
+    std::cout << s1 << ", " << s2 << std::endl;
+    return 0;
+}
+```
+
+### 字符串转数字（int, float, double, long, long long）
+
+```cpp
+#include <string>
+#include <iostream>
+
+int main() {
+    std::string s1 = "123";
+    std::string s2 = "3.14";
+
+    int i = std::stoi(s1);      // 123
+    double d = std::stod(s2);   // 3.14
+
+    std::cout << i + 1 << ", " << d * 2 << std::endl;
+    return 0;
+}
+```
+
+## 字符串翻转
+
+使用algorithm中的`std::reverse()`函数
+```
+#include <iostream>
+#include <string>
+#include <algorithm>  // std::reverse
+
+int main() {
+    std::string s = "hello";
+    std::reverse(s.begin(), s.end());
+    std::cout << s << std::endl;  // 输出: "olleh"
+    return 0;
+}
+```
+
+函数签名：
+```cpp
+template <class BidirectionalIterator>
+void reverse(BidirectionalIterator first, BidirectionalIterator last);
+```
+
+# 树
+
+## 从前序与中序遍历序列构造二叉树
+
+<image src="./picture/image_1.png" width = 800>
+
+先序遍历的数组表现出来的顺序是先根节点，然后左子树，最后右子树  
+因此我们可以声明一个`int pre_index`从0往后读  
+对应着递归中先递归左子树
+
+```cpp
+/**
+ * Definition for a binary tree node.
+ * struct TreeNode {
+ *     int val;
+ *     TreeNode *left;
+ *     TreeNode *right;
+ *     TreeNode() : val(0), left(nullptr), right(nullptr) {}
+ *     TreeNode(int x) : val(x), left(nullptr), right(nullptr) {}
+ *     TreeNode(int x, TreeNode *left, TreeNode *right) : val(x), left(left), right(right) {}
+ * };
+ */
+class Solution {
+public:
+    int pre_index;
+    unordered_map<int, int> inorder_map;
+
+    TreeNode* buildTree(vector<int>& preorder, vector<int>& inorder) {
+        for(int i = 0; i < inorder.size(); ++i){
+            inorder_map.insert({inorder[i], i});
+        }
+        pre_index = 0;
+        return build(preorder, inorder, 0, inorder.size() - 1);
+    }
+
+    TreeNode* build(vector<int>& preorder, vector<int>& inorder, int left, int right){
+        if(left > right){
+            return nullptr;
+        }
+        //得到当前递归子树的根节点的值
+        int root_val = preorder[pre_index];
+        //此时pre_index对应着当前子树的左子树在preorder中的索引或者右子树
+        ++pre_index;
+        int root_index = inorder_map[root_val];
+        TreeNode* root = new TreeNode(root_val);
+        //到了叶子节点时我们有left = root_index
+        root->left = build(preorder, inorder, left, root_index - 1);
+        //同理，叶子节点有root_index = right
+        root->right = build(preorder, inorder, root_index + 1, right);
+        return root;
+    }
+
 };
 ```
