@@ -5,8 +5,9 @@
     - [递归写法](#递归写法)
     - [循环写法](#循环写法)
   - [归并](#归并)
-- [回溯](#回溯)
 - [快排](#快排)
+- [回溯](#回溯)
+- [快排](#快排-1)
 - [字符串](#字符串)
   - [字符串按空格分割](#字符串按空格分割)
   - [字符串转数字，数字转字符串](#字符串转数字数字转字符串)
@@ -138,6 +139,44 @@ ListNode* mergeTwoLists(ListNode* node1, ListNode* node2){
         }
         return return_node->next;
     }
+```
+# 快排
+
+```cpp
+#include <iostream>
+#include <vector>
+
+using namespace std;
+
+int partition(vector<int> &arr, int begin, int end){
+    int pivot = arr[end];
+    int j = begin;
+    for(int i = begin; i < end; ++i){
+        if(arr[i] < pivot){
+            swap(arr[i], arr[j]);
+            ++j;
+        }
+    }
+    swap(arr[end], arr[j]);
+    return j;
+}
+
+void quicksort(vector<int> &arr, int begin, int end){
+    if(begin < end){
+        int mid = partition(arr, begin, end);
+        quicksort(arr, begin, mid - 1);
+        quicksort(arr, mid + 1, end);
+    }
+}
+
+int main(){
+    vector<int> a = {1,7,8,65,123,45,6,978,8,7};
+    quicksort(a, 0, a.size() - 1);
+    for(int i : a){
+        cout << i << " ";
+    }
+    cout << endl;
+}
 ```
 
 # 回溯
