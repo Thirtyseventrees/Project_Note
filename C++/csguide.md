@@ -81,6 +81,10 @@
   - [互斥量`std::mutex`](#互斥量stdmutex)
   - [条件变量（`std::condition_variable`）](#条件变量stdcondition_variable)
   - [自旋锁和互斥锁](#自旋锁和互斥锁)
+- [SQL](#sql)
+  - [数据查询（`SELECT`）](#数据查询select)
+  - [数据插入（`INSERT`）更新（`UPDATE`）删除（`DELETE`）](#数据插入insert更新update删除delete)
+  - [子查询与连接](#子查询与连接)
 
 # OOP三大特性
 封装，继承，多态
@@ -2235,4 +2239,168 @@ void notifier() {
         std::lock_gurad<std::mutex> lock(mtx);
         // critical_section
     }
+    ```
+
+# SQL
+
+## 数据查询（`SELECT`）
+
+1. 基本查询
+    ```SQL
+    SELECT name, age FROM users;
+    ```
+2. 条件查询（`WHERE`）
+    ```SQL
+    SELECT * FROM users WHERE age > 30 AND gender = 'male';
+    ```
+3. 模糊查询（`LIKE`）
+    ```SQL
+    SELECT * FROM user WHERE name LIKE 'A%';  --以A开头
+    ```
+
+    通配符：
+    | 通配符 | 说明                     | 示例                      |
+    | --- | ---------------------- | ----------------------- |
+    | `%` | 匹配任意数量的任意字符（可以是 0 个字符） | `'A%'` → 以 A 开头的任意长度字符串 |
+    | `_` | 匹配单个任意字符               | `'A_'` → A 开头的两个字符字符串   |
+
+    例如：
+    ```SQL
+    -- 匹配以 "Jo" 开头的名字
+    SELECT * FROM users WHERE name LIKE 'Jo%';
+
+    -- 匹配名字中第2个字符是 "a"，长度是3的名字
+    SELECT * FROM users WHERE name LIKE '_a_';
+    ```
+4. 排序（`ORDER BY`）
+    ```SQL
+    SELECT * FROM users ORDER BY age DESC; --降序
+    SELECT * FROM users ORDER BY age ASC;  --升序
+    ```
+5. 去重（`DISTINCT`）
+    ```SQL
+    SELECT DISTINCT city FROM users;
+    ```
+6. 分页（`LEFT`/`OFFSET`）
+    ```SQL
+    SELECT * FROM users LIMIT 10 OFFSET 20;
+    ```
+7. 聚合函数（`COUNT`,`SUM`,`AVG`,`MAX`,`MIN`）
+    | 函数        | 含义   | 示例                |
+    | --------- | ---- | ----------------- |
+    | `COUNT()` | 统计数量 | 统计行数、非 NULL 的字段个数 |
+    | `SUM()`   | 求和   | 一列数值的总和           |
+    | `AVG()`   | 平均值  | 一列数值的平均值          |
+    | `MAX()`   | 最大值  | 某一列中的最大值          |
+    | `MIN()`   | 最小值  | 某一列中的最小值          |
+
+   1. `COUNT()`：计数  
+        统计所有行（包括NULL）
+        ```SQL
+        SELECT COUNT(*) FROM users;
+        ```
+
+        统计某列的非NULL个数
+        ```SQL
+        SELECT COUNT(age) FROM users;
+        ```
+
+        与GROUP BY联用
+        ```SQL
+        SELECT city, COUNT(*)
+        FROM users
+        GROUP BY city;  --按城市分组，统计每个城市的人数
+        ```
+
+    2. `SUM()`：求和  
+        求某列的总和
+        ```SQL
+        SELECT SUM(salary) FROM employees;
+        ```
+
+        分组求和
+        ```SQL
+        SELECT department, SUM(salary)
+        FROM employees
+        GROUP BY department; --每个部门的总工资
+        ```
+    
+    3. `AVG()`：平均值
+        ```SQL
+        SELECT AVG(score) FROM students;
+        ```
+
+        配合分组：
+        ```SQL
+        SELECT class, AVG(score)
+        FROM students
+        GROUP BY class;
+        ```
+
+    4. `MAX()`和`MIN()`：最大值/最小值
+        ```SQL
+        SELECT MAX(price) FROM products;
+        SELECT MIN(price) FROM products;
+        ```
+
+    **注意事项：**  
+    1. 聚合函数忽略NULL（除了`COUNT(*)`）
+    2. 不能直接在`WHERE`子句中使用聚合函数（应当配合`GROUP BY`和`HAVING`使用）：
+    ```SQL
+    SELECT department, AVG(salary)
+    FROM employees
+    GROUP BY department
+    HAVING AVG(salary) > 5000;
+    ```
+    3. 聚合函数和普通字段混用时必须使用`GROUP BY`:
+    ```SQL
+    SELECT name, COUNT(*) FROM users GROUP BY name;
+    ```
+
+8. 分组（`GROUP BY`）+ 过滤（`HAVING`）
+   ```SQL
+   SELECT city, COUNT(*) 
+   FROM users 
+   GROUP BY city HAVING COUNT(*) > 10
+   ```
+
+## 数据插入（`INSERT`）更新（`UPDATE`）删除（`DELETE`）
+
+1. 插入数据
+   ```SQL
+   INSERT INTO users (name, age) 
+   VALUES ('Alice', 25), ('Bob', 30), ('Charlie', 35);
+   ```
+
+2. 数据更新
+   ```SQL
+   UPDATE users SET age = age + 1 WHERE city = 'Tokyo';
+   ```
+
+3. 数据删除
+    ```SQL
+    DELETE FROM users WHERE age < 18;
+    ```
+
+## 子查询与连接
+
+1. 子查询
+    ```sql
+    SELECT * FROM users WHERE age > (SELECT AVG(age) FROM users);
+    ```
+
+2. 内连接（`INNER JOIN`）  
+    只返回两个表中匹配的行（即`ON`条件成立的行）
+    ```SQL
+    SELECT *
+    FROM A
+    INNER JOIN B ON A.key = B.key;
+    ```
+
+3. 左连接（`LEFT JOIN`）
+    返回左表中所有的行，即使右表中没有匹配，则右表字段为`NULL`
+    ```sql
+    SELECT *
+    FROM A
+    LEFT JOIN B ON A.key = B.key;
     ```

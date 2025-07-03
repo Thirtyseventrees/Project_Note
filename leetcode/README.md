@@ -10,6 +10,7 @@
 - [快排](#快排-1)
 - [字符串](#字符串)
   - [字符串按空格分割](#字符串按空格分割)
+  - [字符串按特定字符分割](#字符串按特定字符分割)
   - [字符串转数字，数字转字符串](#字符串转数字数字转字符串)
     - [数字转字符串：](#数字转字符串)
     - [字符串转数字（int, float, double, long, long long）](#字符串转数字int-float-double-long-long-long)
@@ -364,6 +365,25 @@ int main(){
     }
 }
 
+```
+
+## 字符串按特定字符分割
+
+```cpp
+#include <iostream>
+#include <sstream>
+#include <vector>
+#include <string>
+
+std::vector<std::string> split(const std::string& s, char delimiter){
+    std::vector<std::string> result;
+    std::stringstream ss(s);
+    std::string item;
+    while(std::getline(ss, item, delimiter)){
+        result.push_back(item);
+    }
+    return result;
+}
 ```
 
 ## 字符串转数字，数字转字符串
