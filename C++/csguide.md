@@ -40,22 +40,25 @@
   - [索引](#索引)
 - [Linux](#linux)
   - [Linux常见命令](#linux常见命令)
-- [sizeof](#sizeof)
-  - [为什么要字节对齐](#为什么要字节对齐)
-- [const关键字](#const关键字)
-- [static关键字](#static关键字)
-- [字节序：大端序，小端序和网络字节序](#字节序大端序小端序和网络字节序)
-- [define和inline和typedef](#define和inline和typedef)
-- [explicit](#explicit)
-- [extern](#extern)
-- [extern "C"](#extern-c)
-- [四种强制类型转换](#四种强制类型转换)
-  - [static\_cast(expr) 静态类型转换](#static_castexpr-静态类型转换)
-  - [dynamic\_cast(expr) – 动态类型转换（运行时检查）](#dynamic_castexpr--动态类型转换运行时检查)
-- [nullptr和NULL的区别](#nullptr和null的区别)
-- [constexpr](#constexpr)
-- [string类](#string类)
-- [指针和引用的区别](#指针和引用的区别)
+- [C++杂项](#c杂项)
+  - [sizeof](#sizeof)
+    - [为什么要字节对齐](#为什么要字节对齐)
+  - [const关键字](#const关键字)
+  - [static关键字](#static关键字)
+  - [字节序：大端序，小端序和网络字节序](#字节序大端序小端序和网络字节序)
+  - [define和inline和typedef](#define和inline和typedef)
+  - [explicit](#explicit)
+  - [extern](#extern)
+  - [extern "C"](#extern-c)
+  - [四种强制类型转换](#四种强制类型转换)
+    - [static\_cast(expr) 静态类型转换](#static_castexpr-静态类型转换)
+    - [dynamic\_cast(expr) – 动态类型转换（运行时检查）](#dynamic_castexpr--动态类型转换运行时检查)
+  - [nullptr和NULL的区别](#nullptr和null的区别)
+  - [constexpr](#constexpr)
+  - [string类](#string类)
+  - [指针和引用的区别](#指针和引用的区别)
+  - [functional](#functional)
+  - [lambda表达式](#lambda表达式)
 - [智能指针](#智能指针)
   - [`unique_ptr`](#unique_ptr)
   - [`shared_ptr`](#shared_ptr)
@@ -1073,8 +1076,9 @@ struct eventpoll {
     | `netstat -i` | 显示网络接口列表和统计信息           |
     | `netstat -s` | 显示协议统计信息（如 TCP、UDP 错误数） |
 
+# C++杂项
 
-# sizeof
+## sizeof
 
 1. 指针大小取决于处理器位数，32位的为4 bytes(32 bits), 64位的为8 bytes(64bits).
 2. `数组作为函数参数时会退化为指针`，大小要按指针的计算:
@@ -1173,7 +1177,7 @@ int main() {
     - 对齐属性
         在 C++11 及更高版本中，可以使用 `alignas` 关键字为数据结构或变量指定对齐要求。这个命令是对某个类型或者对象生效的。例如，`alignas(16) int x`; 将确保 x 的地址是 16 的倍数。
 
-## 为什么要字节对齐
+### 为什么要字节对齐
 1. CPU架构要求：  
    有些平台每次读取都是从偶数地址开始。如果一个 int 类型（假设为 32 位系统）存储在偶数地址开始的位置，那么一个读周期就可以读取这 32 位。但如果存储在奇数地址开始的位置，则需要两个读周期，并将两次读取的结果的高低字节拼凑才能得到这 32 位数据。显然这会显著降低读取效率。
 
@@ -1185,7 +1189,7 @@ int main() {
 
 无论数据是否对齐， x86-64 硬件都能正确工作。不过， Intel 还是建议要对齐数据以提高内存系统的性能。对齐原则是任何K字节的基本对象的地址必须是K的倍数。
 
-# const关键字
+## const关键字
 1. 修饰变量
 2. 修饰函数参数  
    **注：** 修饰普通参数并不能表示不同的参数来函数重载。只有const修饰指针或者引用的时候才能表示不同参数用于函数重载  
@@ -1218,7 +1222,7 @@ int main() {
 4. 修饰指针或引用
 5. 修饰成员函数，表示该函数不会修改对象的状态
 
-# static关键字
+## static关键字
 存储在静态内存区而不在栈上
 1. 在函数内部修饰局部变量：  
     修饰的变量只初始化一次，生命周期从程序开始到结束。
@@ -1234,7 +1238,7 @@ int main() {
 3. 在文件作用域中声明全局变量或函数  
    **注：** static 限制变量/函数的作用域只在当前编译单元（.cpp文件）内。外部其他 .cpp 文件 不能链接访问这个变量或函数。
 
-# 字节序：大端序，小端序和网络字节序
+## 字节序：大端序，小端序和网络字节序
 
 - 大端序  
   高位字节存储在低地址处，低位字节存储在高地址处。
@@ -1242,7 +1246,7 @@ int main() {
 - 小端序
   低位字节存储在低地址处，高位字节存储在高地址处。
 
-# define和inline和typedef
+## define和inline和typedef
 
 1. define  
     一般用于定义宏（macro），主要有两种用途：
@@ -1276,7 +1280,7 @@ int main() {
     typedef 是一种类型定义关键字，用于为现有类型创建新的名称。  
     与宏定义不同，typedef 是在编译阶段处理的，有更严格的类型检查。（宏定义是在预处理的时候进行文本替换）
 
-# explicit
+## explicit
 
 explicit 是 C++ 里`专门用来防止隐式类型转换`的一种关键字。
 
@@ -1284,7 +1288,7 @@ C++允许单参数构造函数被用来做隐式类型转换。如果不小心�
 
 加了 explicit 的构造函数/转换函数，不能被编译器自动隐式调用。必须显式调用，不能偷偷做隐式转换。
 
-# extern
+## extern
 
 一般而言，C++全局变量的作用范围仅限于当前的文件。
 
@@ -1297,7 +1301,7 @@ extern 用于指示变量或函数的定义在另一个源文件中，并在当�
 1. 在编译期，extern用于告诉编译器某个变量或函数的定义在其他源文件中，编译器会为它生成一个符号表项，并在当前源文件中建立一个对该符号的引用
 2. 在链接期，链接器将多个目标文件合并成一个可执行文件，并且在当前源文件中声明的符号，会在其他源文件中找到对应的定义，并将它们链接起来。
 
-# extern "C"
+## extern "C"
 
 `extern "C"` 是 C++ 提供的一种机制，用来告诉编译器：“这个函数/变量按照 C 的方式来链接（Linkage）。”
 
@@ -1308,9 +1312,9 @@ C++ 支持 函数重载，所以它对函数名会做处理，称为：名称改
 - 在C++中， 编译器可能把它编译成一个奇怪的符号（比如 _Z5hellov），`带上参数信息以支持重载`。
 - 但在C中，编译器并不会这样干，而是直接叫做hello
 
-# 四种强制类型转换
+## 四种强制类型转换
 
-## static_cast<T>(expr) 静态类型转换
+### static_cast<T>(expr) 静态类型转换
 
 - 基本类型之间的转换（比如 int->float）
 - 向上/向下转换类指针
@@ -1319,7 +1323,7 @@ C++ 支持 函数重载，所以它对函数名会做处理，称为：名称改
 
 编译时检查，不允许无关类型之间的转换
 
-## dynamic_cast<T>(expr) – 动态类型转换（运行时检查）
+### dynamic_cast<T>(expr) – 动态类型转换（运行时检查）
 
 - 用于类层次结构中的指针或引用之间的转换
 - 主要用于多态类型
@@ -1329,7 +1333,7 @@ C++ 支持 函数重载，所以它对函数名会做处理，称为：名称改
 引用转换失败会抛出异常`std::bad_cast`
 
 
-# nullptr和NULL的区别
+## nullptr和NULL的区别
 
 在 C++ 中，NULL 的定义实际上是一个整数值 0，而不是一个真正的指针类型。
 
@@ -1377,7 +1381,7 @@ foo((char*)nullptr);  // 调用 foo(char*)
 foo((int*)nullptr);   // 调用 foo(int*)
 ```
 
-# constexpr
+## constexpr
 
 `constexpr`（constant expression）表示：这个变量、函数、构造器可以在编译期求值
 
@@ -1415,7 +1419,7 @@ constexpr Point p1(1, 2);  // 编译时构造
 
 - C++17 引入了`if constexpr`，这个条件在编译期就会被判断，`不会编译不符合条件的分支`
 
-# string类
+## string类
 
 常用构造方式：
 ```cpp
@@ -1450,12 +1454,109 @@ s.replace(0, 5, "Hi");         // Hi, world!
 ```
 **注：** string的`size()`不会包括字符串的终止字符`'/0'`
 
-# 指针和引用的区别
+## 指针和引用的区别
 
 1. 指针是一个变量，它保存了另一个变量的内存地址；引用是一个变量的别名，与原变量共享内存地址。
 2. 指针可以被重新赋值，指向不同的变量；引用在初始化之后不能更改，始终指向同一个变量。
 3. 指针可以为nullptr，表示不指向任何变量；引用必须绑定到一个变量，不能为空。
 4. 使用指针需要解引用；引用不需要。
+
+## functional
+std::function<void()> 代表无参数且无返回值的函数签名，因此不能直接接受一个有参数的函数指针。但可以通过绑定参数的方式，使其适配 std::function<void()>。
+
+```c
+#include <iostream>
+#include <functional>
+
+void myFunc(int x) {
+    std::cout << "Value: " << x << std::endl;
+}
+
+int main() {
+    std::function<void()> func = std::bind(myFunc, 42);  // 绑定参数 x=42
+    func();  // 输出 "Value: 42"
+    return 0;
+}
+```
+
+## lambda表达式
+Lambda 表达式的基本语法如下：
+```
+[捕获列表](参数列表) -> 返回类型 { 函数体 };
+```
+其中：
+- 捕获列表 [ ]：定义 lambda 如何捕获外部变量（值捕获 =，引用捕获 &）。
+- 参数列表 ( )：类似普通函数的参数列表（可以省略）。
+- 返回类型 ->（可选）：可以省略，编译器会自动推导。
+- 函数体 {}：实际的代码逻辑。
+
+```c
+#include <iostream>
+
+int main() {
+    auto add = [](int a, int b) { return a + b; };
+    std::cout << "3 + 5 = " << add(3, 5) << std::endl; // 输出 8
+    return 0;
+}
+```  
+
+```c
+#include <iostream>
+
+int main() {
+    auto divide = [](double a, double b) -> double {
+        if (b == 0) return 0;
+        return a / b;
+    };
+    std::cout << "10 / 3 = " << divide(10, 3) << std::endl; // 输出 3.33333
+    return 0;
+}
+```
+
+1. 值捕获`[=]`（拷贝）
+值捕获会 拷贝 变量，因此在 Lambda 内部修改变量不会影响外部。
+```c
+#include <iostream>
+
+int main() {
+    int x = 10;
+    auto lambda = [=]() { std::cout << "x = " << x << std::endl; };
+    lambda();
+    return 0;
+}
+```
+
+2. 引用捕获`[&]`（引用）
+```c
+#include <iostream>
+
+int main() {
+    int x = 10;
+    auto lambda = [&]() { x += 5; };
+    lambda();
+    std::cout << "x = " << x << std::endl; // 输出 15
+    return 0;
+}
+```
+
+3. 指定捕获变量
+```c
+#include <iostream>
+
+int main() {
+    int a = 10, b = 20;
+    auto lambda = [a, &b]() {
+        // a 被值捕获，无法修改
+        // b 被引用捕获，可以修改
+        // a += 5; // ❌ 编译错误
+        b += 5;   // ✅ 可以修改
+    };
+
+    lambda();
+    std::cout << "a = " << a << ", b = " << b << std::endl; // a = 10, b = 25
+    return 0;
+}
+```
 
 # 智能指针
 
