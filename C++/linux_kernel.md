@@ -16,6 +16,17 @@
 - Any shared memory segments
 - Any anonymous memory mappings, such as those associated with malloc()
 
+## 页
+
+在操作系统中，内存管理的最小单位不是字节，是页  
+一页就是一段固定大小的连续虚拟内存块，操作系统通过它把虚拟内存和物理内存联系起来
+
+页通常大小为4KB
+
+
+
+## mmap(), mumap(), mprotect()
+
 进程的初始状态：
 
 只有ELF文件里声明的内存和一些操作系统分配的内存
@@ -30,3 +41,21 @@
 - munmap()
 修改映射权限
 - mprotect()
+
+mmap():  
+mmap是一种内存映射技术，能把一个文件或者一段匿名内存直接映射到进程的虚拟地址空间中
+```cpp
+void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
+```
+- addr: 映射的起始地址，通常传NULL让内核自己选择
+- length: 映射的长度（字节数），会按页大小对齐
+- prot: 内存保护方式，决定映射区的权限
+  - PROT_READ：可读
+  - PROT_WRITE：可写
+  - PROT_EXEC：可执行
+  - PROT_NONE：不可访问
+- flag: 映射选项，控制共享/私有等
+- fd: 被映射文件的文件描述符(不映射文件时为-1)
+- offset: 从文件的什么位置开始映射，必须是页大小的整数倍
+
+函数成功时返回映射区域的起始地址，失败时返回'MAP_FAILER'
