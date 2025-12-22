@@ -88,6 +88,12 @@
   - [数据查询（`SELECT`）](#数据查询select)
   - [数据插入（`INSERT`）更新（`UPDATE`）删除（`DELETE`）](#数据插入insert更新update删除delete)
   - [子查询与连接](#子查询与连接)
+- [C++ 哈希表实现](#c-哈希表实现)
+  - [插入节点](#插入节点)
+  - [删除节点](#删除节点)
+  - [常见哈希函数](#常见哈希函数)
+    - [字符串哈希函数](#字符串哈希函数)
+  - [哈希表和红黑树的比较](#哈希表和红黑树的比较)
 
 # OOP三大特性
 封装，继承，多态
@@ -2533,3 +2539,247 @@ void notifier() {
     FROM A
     LEFT JOIN B ON A.key = B.key;
     ```
+
+# C++ 哈希表实现
+
+Coomand in libc：
+```cpp
+/*
+*  Each _Hashtable data structure has:
+   *
+   *  - _Bucket[]       _M_buckets
+   *  - _Hash_node_base _M_before_begin
+   *  - size_type       _M_bucket_count
+   *  - size_type       _M_element_count
+   *
+   *  with _Bucket being _Hash_node_base* and _Hash_node containing:
+   *
+   *  - _Hash_node*   _M_next
+   *  - Tp            _M_value
+   *  - size_t        _M_hash_code if cache_hash_code is true
+   *
+   *  In terms of Standard containers the hashtable is like the aggregation of:
+   *
+   *  - std::forward_list<_Node> containing the elements
+   *  - std::vector<std::forward_list<_Node>::iterator> representing the buckets
+   *
+   *  The non-empty buckets contain the node before the first node in the
+   *  bucket. This design makes it possible to implement something like a
+   *  std::forward_list::insert_after on container insertion and
+   *  std::forward_list::erase_after on container erase
+   *  calls. _M_before_begin is equivalent to
+   *  std::forward_list::before_begin. Empty buckets contain
+   *  nullptr.  Note that one of the non-empty buckets contains
+   *  &_M_before_begin which is not a dereferenceable node so the
+   *  node pointer in a bucket shall never be dereferenced, only its
+   *  next node can be.
+   *
+   *  Walking through a bucket's nodes requires a check on the hash code to
+   *  see if each node is still in the bucket. Such a design assumes a
+   *  quite efficient hash functor and is one of the reasons it is
+   *  highly advisable to set __cache_hash_code to true.
+   *
+   *  The container iterators are simply built from nodes. This way
+   *  incrementing the iterator is perfectly efficient independent of
+   *  how many empty buckets there are in the container.
+   *
+   *  On insert we compute the element's hash code and use it to find the
+   *  bucket index. If the element must be inserted in an empty bucket
+   *  we add it at the beginning of the singly linked list and make the
+   *  bucket point to _M_before_begin. The bucket that used to point to
+   *  _M_before_begin, if any, is updated to point to its new before
+   *  begin node.
+   *
+   *  On erase, the simple iterator design requires using the hash
+   *  functor to get the index of the bucket to update. For this
+   *  reason, when __cache_hash_code is set to false the hash functor must
+   *  not throw and this is enforced by a static assertion.
+   *
+   *  Functionality is implemented by decomposition into base classes,
+   *  where the derived _Hashtable class is used in _Map_base,
+   *  _Insert, _Rehash_base, and _Equality base classes to access the
+   *  "this" pointer. _Hashtable_base is used in the base classes as a
+   *  non-recursive, fully-completed-type so that detailed nested type
+   *  information, such as iterator type and node type, can be
+   *  used. This is similar to the "Curiously Recurring Template
+   *  Pattern" (CRTP) technique, but uses a reconstructed, not
+   *  explicitly passed, template pattern.
+   *
+   *  Base class templates are: 
+   *    - __detail::_Hashtable_base
+   *    - __detail::_Map_base
+   *    - __detail::_Insert
+   *    - __detail::_Rehash_base
+   *    - __detail::_Equality
+   */
+```
+
+整个哈希表由一个代表所有bucket的数组和一个存储所有真正节点的链表组成  
+bucket数组存储该哈希值对应的链表的前驱指针，如果该bucket还没有对应的元素则为nullptr  
+链表有一个虚拟的头节点  
+
+```
+list:    _M_before_begin-> element0 -> ... -> element_x -> element_y -> ...
+                ^                                ^
+                |                                |
+bucket[]:   bucket0 ... nullptr ...           bucket_y    
+```
+
+## 插入节点
+```cpp
+template<typename _Key, typename _Value, typename _Alloc,
+	   typename _ExtractKey, typename _Equal,
+	   typename _Hash, typename _RangeHash, typename _Unused,
+	   typename _RehashPolicy, typename _Traits>
+    void
+    _Hashtable<_Key, _Value, _Alloc, _ExtractKey, _Equal,
+	       _Hash, _RangeHash, _Unused, _RehashPolicy, _Traits>::
+    _M_insert_bucket_begin(size_type __bkt, __node_ptr __node)
+    {
+      // 如果对应的bucket不为空
+      if (_M_buckets[__bkt])
+	{
+	  // Bucket is not empty, we just need to insert the new node
+	  // after the bucket before begin.
+	  __node->_M_nxt = _M_buckets[__bkt]->_M_nxt;
+	  _M_buckets[__bkt]->_M_nxt = __node;
+	}
+      // 如果对应的bucket为空
+      // 将该bucket的前驱节点设置为链表的头指针_M_before_begin
+      else
+	{
+	  // The bucket is empty, the new node is inserted at the
+	  // beginning of the singly-linked list and the bucket will
+	  // contain _M_before_begin pointer.
+	  __node->_M_nxt = _M_before_begin._M_nxt;
+	  _M_before_begin._M_nxt = __node;
+
+      // 如果插入之后node的next不为空说明后面有其他bucket的节点
+      // 此时需要更新那个bucket的前驱指针为node
+	  if (__node->_M_nxt)
+	    // We must update former begin bucket that is pointing to
+	    // _M_before_begin.
+	    _M_buckets[_M_bucket_index(*__node->_M_next())] = __node;
+
+	  _M_buckets[__bkt] = &_M_before_begin;
+	}
+    }
+```
+
+当我们插入一个值到一个bucket时  
+- 如果该bucket不为空，则将该节点插入到bucket中存储的前驱节点的next中
+- 如果为空，则将bucket中存储的前驱节点设置为`_M_before_begin`，然后将该节点插入_M_before_begin->next  
+
+## 删除节点
+```cpp
+template<typename _Key, typename _Value, typename _Alloc,
+	   typename _ExtractKey, typename _Equal,
+	   typename _Hash, typename _RangeHash, typename _Unused,
+	   typename _RehashPolicy, typename _Traits>
+    auto
+    _Hashtable<_Key, _Value, _Alloc, _ExtractKey, _Equal,
+	       _Hash, _RangeHash, _Unused, _RehashPolicy, _Traits>::
+    _M_erase(true_type /* __uks */, const key_type& __k)
+    -> size_type
+    {
+      __hash_code __code = this->_M_hash_code(__k);
+      std::size_t __bkt = _M_bucket_index(__code);
+
+      // Look for the node before the first matching node.
+      __node_base_ptr __prev_n = _M_find_before_node(__bkt, __k, __code);
+      if (!__prev_n)
+	return 0;
+
+      // We found a matching node, erase it.
+      __node_ptr __n = static_cast<__node_ptr>(__prev_n->_M_nxt);
+      _M_erase(__bkt, __prev_n, __n);
+      return 1;
+    }
+
+
+// __bkt为对应哈希值的bucket的index，__prev_n为被删除节点的前驱节点，__n为被删除的节点
+
+template<typename _Key, typename _Value, typename _Alloc,
+	   typename _ExtractKey, typename _Equal,
+	   typename _Hash, typename _RangeHash, typename _Unused,
+	   typename _RehashPolicy, typename _Traits>
+    auto
+    _Hashtable<_Key, _Value, _Alloc, _ExtractKey, _Equal,
+	       _Hash, _RangeHash, _Unused, _RehashPolicy, _Traits>::
+    _M_erase(size_type __bkt, __node_base_ptr __prev_n, __node_ptr __n)
+    -> iterator
+    {
+      // 这个判断条件为真说明该节点为对应bucket的第一个节点
+      if (__prev_n == _M_buckets[__bkt])
+	_M_remove_bucket_begin(__bkt, __n->_M_next(),
+	  __n->_M_nxt ? _M_bucket_index(*__n->_M_next()) : 0);
+      // 有后续节点
+      else if (__n->_M_nxt)
+	{
+	  size_type __next_bkt = _M_bucket_index(*__n->_M_next());
+	  // 如果next节点不属于同一个bucket则需要更新下一个bucket的前驱节点为__prev_n
+      if (__next_bkt != __bkt)
+	    _M_buckets[__next_bkt] = __prev_n;
+	}
+
+      __prev_n->_M_nxt = __n->_M_nxt;
+      iterator __result(__n->_M_next());
+      this->_M_deallocate_node(__n);
+      --_M_element_count;
+
+      return __result;
+    }
+
+  // _M_remove_bucket_begin
+  // __bkt为对应bucket的index，__next为被删除节点的next，__next_bkt为next节点所属的bucket的index
+  template<typename _Key, typename _Value, typename _Alloc,
+	   typename _ExtractKey, typename _Equal,
+	   typename _Hash, typename _RangeHash, typename _Unused,
+	   typename _RehashPolicy, typename _Traits>
+    void
+    _Hashtable<_Key, _Value, _Alloc, _ExtractKey, _Equal,
+	       _Hash, _RangeHash, _Unused, _RehashPolicy, _Traits>::
+    _M_remove_bucket_begin(size_type __bkt, __node_ptr __next,
+			   size_type __next_bkt)
+    {
+      // 如果next节点为空或者next节点不属于同一个bucket
+      // 说明此时被删除节点对应的bucket为空
+      if (!__next || __next_bkt != __bkt)
+	{
+	  // Bucket is now empty
+	  // First update next bucket if any
+      // 此时需要把next节点所属的bucket的前驱节点设置为当前bucket的前驱节点
+	  if (__next)
+	    _M_buckets[__next_bkt] = _M_buckets[__bkt];
+
+	  // Second update before begin node if necessary
+      // 如果该bucket在链表头，则需要更新_M_before_begin._M_nxt为next节点
+	  if (&_M_before_begin == _M_buckets[__bkt])
+	    _M_before_begin._M_nxt = __next;
+    
+	  _M_buckets[__bkt] = nullptr;
+	}
+    }
+```
+
+## 常见哈希函数
+
+### 字符串哈希函数
+
+1. 多项式滚动哈希
+    ```
+    h(s) = (s[0]*p^(n-1) + s[1]*p^(n-2) + ... + s[n-1]) % M
+    ```
+      常用p = 131 或p = 31， M为大质数
+
+## 哈希表和红黑树的比较
+
+虽然哈希表查找为O(1)而红黑树查找为O(log n)  
+但哈希表的常数复杂度的常数可能会很大  
+
+当数据量小，哈希函数开销大或者哈希冲突严重时哈希表查找可能会比红黑树更差
+
+当key值很大的时候  
+对于查找而言，哈希表会优于红黑树(O(L + a), O(log n * L))
+红黑树会比哈希表更稳定  
+因为哈希表可能需要rehash，此时需要处理所有的key值，开销巨大  
