@@ -1,0 +1,3 @@
+/home/chenyuye/note/final_review/pde/test/2025_07_08/q1/build/CMakeFiles/q1.dir
+/home/chenyuye/note/final_review/pde/test/2025_07_08/q1/build/CMakeFiles/edit_cache.dir
+/home/chenyuye/note/final_review/pde/test/2025_07_08/q1/build/CMakeFiles/rebuild_cache.dir

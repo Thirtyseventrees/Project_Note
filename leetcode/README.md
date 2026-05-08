@@ -17,6 +17,13 @@
   - [字符串翻转](#字符串翻转)
 - [树](#树)
   - [从前序与中序遍历序列构造二叉树](#从前序与中序遍历序列构造二叉树)
+  - [非递归遍历](#非递归遍历)
+    - [前序遍历](#前序遍历)
+    - [中序遍历](#中序遍历)
+    - [后序遍历](#后序遍历)
+- [自定义比较函数的使用](#自定义比较函数的使用)
+  - [priority\_queue](#priority_queue)
+  - [sort()](#sort)
 
 # 细节
 
@@ -501,4 +508,111 @@ public:
     }
 
 };
+```
+
+## 非递归遍历
+
+### 前序遍历
+
+初始将根节点压栈，然后while循环，每次拿出节点并访问，然后把左子树压栈，再把右子树压栈
+
+```cpp
+void preorder(TreeNode* root) {
+    if (!root) return;
+
+    stack<TreeNode*> st;
+    st.push(root);
+
+    while (!st.empty()) {
+        TreeNode* node = st.top();
+        st.pop();
+
+        cout << node->val << " ";
+
+        // 注意顺序：先右后左
+        if (node->right) st.push(node->right);
+        if (node->left) st.push(node->left);
+    }
+}
+```
+
+### 中序遍历
+
+先一路往左走到底  
+然后处理节点  
+再转向右子树  
+
+```cpp
+void inorder(Treenode *root){
+    stack<Treenode*> st;
+    Treenode* cur = root;
+
+    while(cur || !st.empty()){
+        while(cur){
+            st.push(cur);
+            cur = cur->left;
+        }
+
+        cur = st.top();
+        st.pop();
+        cout << cur->val << endl;
+
+        cur = cur->right;
+    }
+}
+```
+
+### 后序遍历
+
+可以先前序遍历变体：根-右-左，再reverse
+
+```cpp
+vector<int> postorder(TreeNode* root) {
+    vector<int> res;
+    if (!root) return res;
+
+    stack<TreeNode*> st;
+    st.push(root);
+
+    while (!st.empty()) {
+        auto node = st.top(); st.pop();
+        res.push_back(node->val);
+
+        if (node->left) st.push(node->left);
+        if (node->right) st.push(node->right);
+    }
+
+    reverse(res.begin(), res.end());
+    return res;
+}
+```
+
+# 自定义比较函数的使用
+
+## priority_queue
+
+```cpp
+struct cmp{
+    bool operator()(int a, int b){  //如果是结构体记得写成引用
+        return a > b; //小顶堆
+    }
+}
+
+priority_queue<int, vector<int>, cmp> a;
+```
+
+## sort()
+
+```cpp
+struct node{
+    int val;
+    int freq
+}
+
+bool cmp(node &a, node &b){
+    return a.val > b.val; //降序
+}
+
+vector<node> v = {...};
+sort(v.begin(), v.end(), cmp);
 ```
